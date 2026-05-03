@@ -1,0 +1,143 @@
+---
+title: "Deploy AI agents with LangSmith"
+sidebarTitle: "Deployment"
+description: "Deploy LangGraph agents to production with LangSmith. Choose cloud, hybrid, or self-hosted infrastructure with the same Agent Server runtime and API."
+---
+
+LangSmith Deployment is a workflow orchestration runtime built for agent workloads. It gives your agents durable execution, real-time streaming, persistent state, and horizontal scaling in production. You can deploy agents built with LangGraph or other frameworks using the same infrastructure and API regardless of where you host.
+
+<Note>
+  LangSmith Deployment requires a Plus plan or above. [View pricing](https://www.langchain.com/pricing) or [contact sales](https://www.langchain.com/contact-sales) for hybrid and self-hosted options.
+</Note>
+
+## What Agent Server provides
+
+The core of LangSmith Deployment is the **Agent Server**—a REST API that hosts your LangGraph agents as managed endpoints. Agent Server provides:
+
+- **Assistants**: Versioned configurations of your agent graph. Deploy the same graph with different models, prompts, or tools per assistant without redeploying your code.
+- **Threads**: Persistent state across multiple runs. Your agent remembers context between interactions and can resume from any checkpoint if interrupted.
+- **Streaming**: Server-sent events that forward agent output to your client in real time as the graph executes.
+- **Human-in-the-loop**: Pause execution mid-run to wait for human approval or input, then resume from the same checkpoint.
+- **Cron jobs**: Schedule recurring runs on your agent.
+- **Background runs**: Kick off long-running jobs asynchronously and poll or stream results.
+
+For full details on Agent Server's architecture and capabilities, see [Agent Server](/langsmith/agent-server).
+
+## Deployment options
+
+All three options run the same Agent Server runtime and expose the same REST API. The difference is who manages the infrastructure.
+
+<CardGroup cols={3}>
+  <Card title="Cloud" icon="cloud">
+    **Fully managed by LangSmith.**
+
+    Push from a git repo or run `langgraph deploy` from the CLI. LangSmith builds, deploys, and scales your agent automatically. No infrastructure to manage.
+
+    Best for: teams that want to move fast without managing servers.
+  </Card>
+  <Card title="Hybrid" icon="server">
+    **Runs in your cloud, managed by the LangSmith control plane.**
+
+    Your agent code and data stay in your infrastructure. LangSmith's control plane handles deployment orchestration.
+
+    Best for: teams with data residency requirements who still want managed operations.
+  </Card>
+  <Card title="Self-hosted" icon="building">
+    **Fully self-managed in your own infrastructure.**
+
+    You own the entire stack—deployment, scaling, upgrades, and monitoring.
+
+    Best for: air-gapped environments or teams with strict infrastructure control requirements.
+  </Card>
+</CardGroup>
+
+## Cloud vs. self-hosted comparison
+
+| | Cloud | Self-hosted |
+|---|---|---|
+| Infrastructure management | LangSmith | You |
+| Data residency | LangSmith cloud | Your infrastructure |
+| Deployment method | `langgraph deploy` / GitHub push | Docker / Kubernetes |
+| Scaling | Automatic | Manual configuration |
+| Setup time | Minutes | Hours to days |
+| Requires Plus plan | Yes | Yes |
+
+## Agent deployment workflow
+
+Regardless of which hosting option you choose, the development workflow is the same:
+
+<Steps>
+  <Step title="Develop locally">
+    Run your agent on a local development server with `langgraph dev`. This starts Agent Server in-memory and opens Studio for interactive testing.
+
+    ```shell
+    langgraph dev
+    ```
+  </Step>
+
+  <Step title="Configure your application">
+    Set up your `langgraph.json` file to declare graphs, dependencies, and environment variables. See [Agent Server](/langsmith/agent-server) for the full reference.
+  </Step>
+
+  <Step title="Deploy">
+    For cloud deployment, run:
+
+    ```shell
+    langgraph deploy
+    ```
+
+    This creates a deployment named after your project directory. Use `--deployment-type prod` for a production deployment.
+  </Step>
+
+  <Step title="Monitor">
+    Every run is automatically traced to LangSmith. Use the **Observability** tab to view traces, configure alerts, and set up dashboards.
+  </Step>
+</Steps>
+
+## Cloud quickstart
+
+<Steps>
+  <Step title="Install prerequisites">
+    Install the LangGraph CLI and ensure Docker is running:
+
+    ```shell
+    uv tool install langgraph-cli
+    ```
+  </Step>
+
+  <Step title="Create a LangGraph app">
+    Scaffold a new app from a template:
+
+    ```shell
+    langgraph new path/to/your/app --template new-langgraph-project-python
+    cd path/to/your/app
+    ```
+  </Step>
+
+  <Step title="Set your API key">
+    Add your LangSmith API key to a `.env` file:
+
+    ```shell
+    LANGSMITH_API_KEY=lsv2_...
+    ```
+  </Step>
+
+  <Step title="Deploy">
+    ```shell
+    langgraph deploy
+    ```
+
+    Once the deployment is ready, navigate to **Deployments** in the LangSmith UI, select your deployment, and click **Studio** to open the interactive agent IDE.
+  </Step>
+</Steps>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Agent Server" icon="cpu" href="/langsmith/agent-server">
+    Understand the runtime architecture, persistence model, and key features of Agent Server.
+  </Card>
+  <Card title="Studio" icon="layout-grid" href="/langsmith/studio">
+    Use Studio to develop, test, and debug your agents visually.
+  </Card>
+</CardGroup>

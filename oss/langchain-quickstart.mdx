@@ -1,0 +1,357 @@
+---
+title: "Build your first agent with LangChain"
+sidebarTitle: "LangChain quickstart"
+description: "Install LangChain, connect a model provider, and run a working tool-calling agent in under 5 minutes using create_agent() in Python or TypeScript."
+---
+
+This quickstart walks you through creating a fully functional AI agent that can call tools. You'll install LangChain, set an API key, and invoke an agent that answers questions using a custom function.
+
+## Install dependencies
+
+Install the `langchain` package along with the integration package for your chosen provider.
+
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+      ```bash pip
+      pip install -U langchain "langchain[openai]"
+      ```
+      ```bash uv
+      uv add langchain "langchain[openai]"
+      ```
+    </CodeGroup>
+
+    To use Anthropic instead, replace `langchain[openai]` with `langchain[anthropic]`.
+  </Tab>
+  <Tab title="TypeScript">
+    <CodeGroup>
+      ```bash npm
+      npm install langchain @langchain/core zod
+      # Requires Node.js 20+
+      ```
+      ```bash pnpm
+      pnpm add langchain @langchain/core zod
+      ```
+      ```bash yarn
+      yarn add langchain @langchain/core zod
+      ```
+    </CodeGroup>
+
+    Add the provider package separately, for example `npm install @langchain/openai`.
+  </Tab>
+</Tabs>
+
+## Set your API key
+
+Get an API key from your chosen provider and export it as an environment variable.
+
+<Tabs>
+  <Tab title="OpenAI">
+    ```bash
+    export OPENAI_API_KEY="your-api-key"
+    ```
+  </Tab>
+  <Tab title="Claude (Anthropic)">
+    ```bash
+    export ANTHROPIC_API_KEY="your-api-key"
+    ```
+  </Tab>
+  <Tab title="Google Gemini">
+    ```bash
+    export GOOGLE_API_KEY="your-api-key"
+    ```
+  </Tab>
+  <Tab title="OpenRouter">
+    ```bash
+    export OPENROUTER_API_KEY="your-api-key"
+    ```
+  </Tab>
+  <Tab title="Other">
+    See the [full list of supported providers](/oss/integrations/providers).
+  </Tab>
+</Tabs>
+
+## Create and invoke an agent
+
+Pass a model identifier, a list of tools, and a system prompt to `create_agent()`. Then call `agent.invoke()` with a message.
+
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+      ```python OpenAI
+      from langchain.agents import create_agent
+
+      def get_weather(city: str) -> str:
+          """Get weather for a given city."""
+          return f"It's always sunny in {city}!"
+
+      agent = create_agent(
+          model="openai:gpt-5.4",
+          tools=[get_weather],
+          system_prompt="You are a helpful assistant",
+      )
+
+      result = agent.invoke(
+          {"messages": [{"role": "user", "content": "What's the weather in San Francisco?"}]}
+      )
+      print(result["messages"][-1].content_blocks)
+      ```
+      ```python Claude (Anthropic)
+      from langchain.agents import create_agent
+
+      def get_weather(city: str) -> str:
+          """Get weather for a given city."""
+          return f"It's always sunny in {city}!"
+
+      agent = create_agent(
+          model="claude-sonnet-4-6",
+          tools=[get_weather],
+          system_prompt="You are a helpful assistant",
+      )
+
+      result = agent.invoke(
+          {"messages": [{"role": "user", "content": "What's the weather in San Francisco?"}]}
+      )
+      print(result["messages"][-1].content_blocks)
+      ```
+      ```python Google Gemini
+      from langchain.agents import create_agent
+
+      def get_weather(city: str) -> str:
+          """Get weather for a given city."""
+          return f"It's always sunny in {city}!"
+
+      agent = create_agent(
+          model="google_genai:gemini-2.5-flash-lite",
+          tools=[get_weather],
+          system_prompt="You are a helpful assistant",
+      )
+
+      result = agent.invoke(
+          {"messages": [{"role": "user", "content": "What's the weather in San Francisco?"}]}
+      )
+      print(result["messages"][-1].content_blocks)
+      ```
+      ```python OpenRouter
+      from langchain.agents import create_agent
+
+      def get_weather(city: str) -> str:
+          """Get weather for a given city."""
+          return f"It's always sunny in {city}!"
+
+      agent = create_agent(
+          model="openrouter:anthropic/claude-sonnet-4-6",
+          tools=[get_weather],
+          system_prompt="You are a helpful assistant",
+      )
+
+      result = agent.invoke(
+          {"messages": [{"role": "user", "content": "What's the weather in San Francisco?"}]}
+      )
+      print(result["messages"][-1].content_blocks)
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="TypeScript">
+    <CodeGroup>
+      ```ts OpenAI
+      import { createAgent, tool } from "langchain";
+      import * as z from "zod";
+
+      const getWeather = tool(
+        (input) => `It's always sunny in ${input.city}!`,
+        {
+          name: "get_weather",
+          description: "Get the weather for a given city",
+          schema: z.object({
+            city: z.string().describe("The city to get the weather for"),
+          }),
+        }
+      );
+
+      const agent = createAgent({
+        model: "gpt-5.4",
+        tools: [getWeather],
+      });
+
+      console.log(
+        await agent.invoke({
+          messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+        })
+      );
+      ```
+      ```ts Claude (Anthropic)
+      import { createAgent, tool } from "langchain";
+      import * as z from "zod";
+
+      const getWeather = tool(
+        (input) => `It's always sunny in ${input.city}!`,
+        {
+          name: "get_weather",
+          description: "Get the weather for a given city",
+          schema: z.object({
+            city: z.string().describe("The city to get the weather for"),
+          }),
+        }
+      );
+
+      const agent = createAgent({
+        model: "claude-sonnet-4-6",
+        tools: [getWeather],
+      });
+
+      console.log(
+        await agent.invoke({
+          messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+        })
+      );
+      ```
+      ```ts Google Gemini
+      import { createAgent, tool } from "langchain";
+      import * as z from "zod";
+
+      const getWeather = tool(
+        (input) => `It's always sunny in ${input.city}!`,
+        {
+          name: "get_weather",
+          description: "Get the weather for a given city",
+          schema: z.object({
+            city: z.string().describe("The city to get the weather for"),
+          }),
+        }
+      );
+
+      const agent = createAgent({
+        model: "google-genai:gemini-2.5-flash-lite",
+        tools: [getWeather],
+      });
+
+      console.log(
+        await agent.invoke({
+          messages: [{ role: "user", content: "What's the weather in San Francisco?" }],
+        })
+      );
+      ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+When you run the code, the agent recognizes that you're asking about weather, calls `get_weather` with `"San Francisco"` as the argument, and uses the result to compose its reply.
+
+<Tip>
+You can use [any supported provider](/oss/integrations/providers) by changing the model string and setting the corresponding API key environment variable.
+</Tip>
+
+## Add memory for multi-turn conversations
+
+To maintain conversation history across turns, add an `InMemorySaver` checkpointer and pass a `thread_id` in the config.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from langchain.agents import create_agent
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    def get_weather(city: str) -> str:
+        """Get weather for a given city."""
+        return f"It's always sunny in {city}!"
+
+    checkpointer = InMemorySaver()
+
+    agent = create_agent(
+        model="openai:gpt-5.4",
+        tools=[get_weather],
+        system_prompt="You are a helpful assistant",
+        checkpointer=checkpointer,
+    )
+
+    config = {"configurable": {"thread_id": "my-thread"}}
+
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": "What's the weather in Paris?"}]},
+        config=config,
+    )
+    print(result["messages"][-1].content_blocks)
+
+    # Follow-up — the agent remembers the previous turn
+    result2 = agent.invoke(
+        {"messages": [{"role": "user", "content": "What about London?"}]},
+        config=config,
+    )
+    print(result2["messages"][-1].content_blocks)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```ts
+    import { createAgent, tool } from "langchain";
+    import { MemorySaver } from "@langchain/langgraph";
+    import * as z from "zod";
+
+    const getWeather = tool(
+      (input) => `It's always sunny in ${input.city}!`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const checkpointer = new MemorySaver();
+
+    const agent = createAgent({
+      model: "gpt-5.4",
+      tools: [getWeather],
+      checkpointer,
+    });
+
+    const config = { configurable: { thread_id: "my-thread" } };
+
+    const result = await agent.invoke(
+      { messages: [{ role: "user", content: "What's the weather in Paris?" }] },
+      config,
+    );
+    console.log(result.messages.at(-1)?.content);
+
+    // Follow-up — the agent remembers the previous turn
+    const result2 = await agent.invoke(
+      { messages: [{ role: "user", content: "What about London?" }] },
+      config,
+    );
+    console.log(result2.messages.at(-1)?.content);
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+In production, replace `InMemorySaver` with a persistent checkpointer backed by a database. See [Persistence](/oss/langgraph/persistence) for details.
+</Note>
+
+## Enable tracing with LangSmith
+
+LangSmith gives you full visibility into every step your agent takes. Set these two environment variables before running your script:
+
+```bash
+export LANGSMITH_TRACING="true"
+export LANGSMITH_API_KEY="your-langsmith-api-key"
+```
+
+Then open [smith.langchain.com](https://smith.langchain.com) to inspect traces, debug tool calls, and evaluate outputs.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="LangChain agents" icon="wand" href="/oss/langchain/agents">
+    Learn about invoke, stream, tools, and structured output.
+  </Card>
+  <Card title="Connect a model" icon="plug" href="/oss/langchain/models">
+    Explore the unified model interface and all supported providers.
+  </Card>
+  <Card title="Define tools" icon="tool" href="/oss/langchain/tools">
+    Use the @tool decorator to build custom tools for your agent.
+  </Card>
+  <Card title="LangGraph quickstart" icon="chart-dots" href="/oss/langgraph-quickstart">
+    Build a stateful agent with explicit graph control using LangGraph.
+  </Card>
+</CardGroup>

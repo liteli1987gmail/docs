@@ -1,0 +1,76 @@
+---
+title: "Connect MCP servers to Fleet agents"
+sidebarTitle: "MCP Servers"
+description: "Extend Fleet agents with custom tools by connecting remote MCP servers. Supports header-based auth, OAuth 2.1, and workspace-wide or per-agent configuration."
+---
+
+Model Context Protocol (MCP) servers expose tools that your Fleet agent can call at runtime. Connecting a remote MCP server is how you give your agent access to tools beyond the built-in integrations — including internal APIs, third-party services, or custom data sources.
+
+When your agent needs a tool from an MCP server, Fleet sends the request to the server over HTTPS and returns the result to the agent. Fleet itself does not execute the tool.
+
+## How it works
+
+```
+Fleet agent → discovers tools from MCP server (with auth headers)
+Fleet agent → calls tool on MCP server (with auth headers)
+MCP server  → returns result to Fleet agent
+```
+
+Tools from remote MCP servers appear alongside built-in tools in the Fleet editor.
+
+## Add an MCP server to a specific agent
+
+<Steps>
+  <Step title="Open the agent editor">
+    In [Fleet](https://smith.langchain.com/agents), open your agent and click **Edit Agent**.
+  </Step>
+  <Step title="Add the MCP server">
+    In the **Toolbox** section, click **MCP**. Enter a name and the server URL, then configure authentication.
+  </Step>
+  <Step title="Save">
+    Click **Save changes**. Fleet discovers available tools from the server and makes them available in this agent.
+  </Step>
+</Steps>
+
+## Add an MCP server to all agents
+
+<Tabs>
+  <Tab title="Fleet > Integrations">
+    1. Navigate to [Fleet > Integrations](https://smith.langchain.com/agents/tools).
+    2. Click **+ Custom MCP** in the left sidebar.
+    3. Enter a name, URL, and authentication settings.
+    4. Click **Save server**.
+  </Tab>
+  <Tab title="Workspace settings">
+    1. Navigate to [Settings > MCP servers](https://smith.langchain.com/settings/workspaces/mcp-servers).
+    2. Click **Add server**, enter the name, URL, and authentication.
+    3. Click **Save server**.
+  </Tab>
+</Tabs>
+
+<Note>
+Adding MCP servers requires **admin** permissions in your workspace.
+</Note>
+
+## Authentication types
+
+| Type | When to use |
+|---|---|
+| **Headers** | API key or bearer token authentication. Set `Authorization: Bearer <token>` as a header. |
+| **OAuth 2.1 (Auto)** | Servers supporting OAuth with dynamic client registration. You'll be prompted to log in. |
+| **OAuth 2.1 (Manual)** | Servers requiring a pre-registered client ID/secret. The OAuth provider must have PKCE enabled. |
+
+## Update an MCP server URL
+
+<Warning>
+Changing an MCP server's URL breaks any agents that reference tools from that server. After updating the URL, you must remove and re-add the affected tools in each agent.
+</Warning>
+
+To update a URL:
+1. Update the server URL in [Settings > MCP servers](https://smith.langchain.com/settings/workspaces/mcp-servers).
+2. For each affected agent, remove the old tools and re-add them from the updated server.
+3. Test the agent to confirm tools work correctly.
+
+## Find available MCP servers
+
+Visit the [Fleet > Integrations tab](https://smith.langchain.com/agents/tools) to browse available MCP servers and their configuration details.

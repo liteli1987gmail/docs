@@ -1,0 +1,75 @@
+---
+title: "LangSmith core concepts explained"
+sidebarTitle: "Concepts"
+description: "Understand the LangSmith data model: projects, traces, runs, threads, feedback, datasets, and experiments, and how they relate to each other."
+---
+
+LangSmith organizes observability data in a hierarchy: a **project** contains **traces**, each trace contains **runs**, and related traces from a multi-turn conversation can be grouped into a **thread**. This page defines each concept so you know exactly what you're looking at in the UI and what to attach to your instrumentation code.
+
+## Data model
+
+```
+Project
+└── Trace (one per user request or agent invocation)
+    ├── Run (root span — your top-level function)
+    │   ├── Run (child span — a tool call)
+    │   └── Run (child span — an LLM call)
+    └── ...
+
+Thread (links multiple Traces from one conversation)
+```
+
+<Accordion title="Projects">
+  A **project** is a container for all traces belonging to a single application or service. Every trace is logged to exactly one project. By default, the SDK logs to a project named `default`. You can route traces to a named project by setting the `LANGSMITH_PROJECT` environment variable or passing the project name directly in your instrumentation code.
+
+  Use separate projects to isolate environments (development vs. production), features, or services from one another.
+</Accordion>
+
+<Accordion title="Traces">
+  A **trace** is a complete record of one operation—everything that happened during a single user request or agent run. It groups all of the runs (spans) triggered by that operation under a shared trace ID.
+
+  If you're familiar with OpenTelemetry, a LangSmith trace maps to a collection of spans sharing the same `trace_id`. LangSmith retains trace data for 400 days on SaaS; after that, traces are permanently deleted. To keep data indefinitely, add it to a dataset.
+</Accordion>
+
+<Accordion title="Runs">
+  A **run** is a single unit of work within a trace: one LLM call, one tool invocation, one retrieval step, or any other discrete operation. Runs are nested—a root run (your outermost traced function) can have child runs for each step it calls.
+
+  Each run records its inputs, outputs, start and end times, latency, token counts (for LLM runs), and any attached metadata or tags. If you're familiar with OpenTelemetry, a run maps to a span.
+</Accordion>
+
+<Accordion title="Threads">
+  A **thread** groups traces from a multi-turn conversation. Each turn is its own trace, but all traces in the conversation share a common identifier so you can reconstruct the full dialogue.
+
+  To link traces into a thread, pass one of the following metadata keys with a consistent value across turns: `session_id`, `thread_id`, or `conversation_id`.
+</Accordion>
+
+<Accordion title="Feedback">
+  **Feedback** is a score attached to a specific run. Each feedback entry has a key (the criterion, such as `correctness` or `user_score`) and a value (a number or a category). You can attach feedback programmatically via the SDK or REST API, collect it from end users in your UI, or add it manually through annotation queues in LangSmith.
+
+  Feedback is aggregated in prebuilt and custom dashboards so you can track quality trends over time.
+</Accordion>
+
+<Accordion title="Tags and metadata">
+  **Tags** are plain strings you attach to runs to categorize and filter them—for example, `"production"`, `"v2"`, or `"beta-user"`.
+
+  **Metadata** is a set of key-value pairs for richer context: application version, user ID, environment, or any other attribute you want to filter or group by in the UI. Tags and metadata are not automatically propagated from parent runs to child runs; attach them explicitly wherever you need them to appear.
+</Accordion>
+
+<Accordion title="Datasets">
+  A **dataset** is a curated collection of input/output pairs used for evaluation. You can create datasets manually, by uploading a CSV or JSON file, or by saving runs directly from the tracing UI. Datasets persist indefinitely, even after the source traces are deleted, making them the right place to store golden examples and regression test cases.
+</Accordion>
+
+<Accordion title="Experiments">
+  An **experiment** runs your application against a dataset and records the results. You compare experiments side by side to measure whether a prompt change, model swap, or architecture update improved or degraded quality. Each experiment row links back to the trace it produced, so you can drill into individual runs when a result looks unexpected.
+</Accordion>
+
+## How data flows
+
+When you call a function decorated with `@traceable`, LangSmith:
+
+1. Creates a root run for that function and assigns it a trace ID.
+2. Creates child runs for any nested `@traceable` calls or wrapped provider calls.
+3. Submits all runs to the project specified in your environment (default: `default`).
+4. Makes the complete trace available in the UI within seconds.
+
+For more detail on the instrumentation options, see [Trace your AI agent with LangSmith](/langsmith/tracing).

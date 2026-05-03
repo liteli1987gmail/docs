@@ -1,0 +1,255 @@
+---
+title: "LangSmith Agent Server: scalable agent hosting"
+sidebarTitle: "Agent Server"
+description: "Host LangGraph agents as REST endpoints with durable execution, persistent threads, real-time streaming, and human-in-the-loop support in LangSmith."
+---
+
+Agent Server is the runtime at the heart of LangSmith Deployment. It takes your LangGraph agent code and exposes it as a REST API with built-in support for persistent state, streaming output, and human review workflows. You interact with Agent Server through the LangGraph SDK or REST API.
+
+## Core primitives
+
+Agent Server is built around four main resources:
+
+<CardGroup cols={2}>
+  <Card title="Assistants" icon="robot" href="/langsmith/agent-server">
+    Versioned configurations of your agent graph. Deploy the same graph with different models, prompts, or tool sets per assistant without changing code.
+  </Card>
+  <Card title="Threads" icon="messages" href="/langsmith/agent-server">
+    Persistent state containers. Each thread stores the full checkpoint history of a conversation, allowing your agent to resume from any prior point.
+  </Card>
+  <Card title="Runs" icon="player-play" href="/langsmith/agent-server">
+    Individual executions of an assistant on a thread. Runs are durable—if a worker is interrupted, the run resumes from its last checkpoint.
+  </Card>
+  <Card title="Cron jobs" icon="clock" href="/langsmith/agent-server">
+    Scheduled runs that execute your agent on a recurring basis.
+  </Card>
+</CardGroup>
+
+## Quickstart: deploy a LangGraph agent to the cloud
+
+<Steps>
+  <Step title="Install the CLI">
+    ```shell
+    uv tool install langgraph-cli
+    ```
+  </Step>
+
+  <Step title="Create a LangGraph app">
+    Scaffold a new app from a template:
+
+    ```shell
+    langgraph new path/to/your/app --template new-langgraph-project-python
+    cd path/to/your/app
+    ```
+  </Step>
+
+  <Step title="Add your API key">
+    Create a `.env` file with your LangSmith API key:
+
+    ```shell
+    LANGSMITH_API_KEY=lsv2_...
+    ```
+  </Step>
+
+  <Step title="Deploy">
+    ```shell
+    langgraph deploy
+    ```
+
+    By default this creates a `dev` deployment named after your project directory. Add `--deployment-type prod` for production.
+  </Step>
+
+  <Step title="Verify in Studio">
+    Go to **Deployments** in the LangSmith UI, select your deployment, and click **Studio** to open the interactive agent IDE and send your first message.
+  </Step>
+</Steps>
+
+## Key features
+
+### Streaming runs
+
+Agent Server uses server-sent events (SSE) to stream output from your graph to the client as it executes. You can stream in `updates` mode (one event per node completion) or `messages` mode (token by token).
+
+<CodeGroup>
+```python Python (async)
+from langgraph_sdk import get_client
+
+client = get_client(
+    url="your-deployment-url",
+    api_key="your-langsmith-api-key",
+)
+
+async for chunk in client.runs.stream(
+    None,  # Threadless run
+    "agent",  # Assistant name, defined in langgraph.json
+    input={
+        "messages": [{"role": "human", "content": "What is LangGraph?"}],
+    },
+    stream_mode="updates",
+):
+    print(f"Event type: {chunk.event}")
+    print(chunk.data)
+```
+
+```python Python (sync)
+from langgraph_sdk import get_sync_client
+
+client = get_sync_client(
+    url="your-deployment-url",
+    api_key="your-langsmith-api-key",
+)
+
+for chunk in client.runs.stream(
+    None,
+    "agent",
+    input={
+        "messages": [{"role": "human", "content": "What is LangGraph?"}],
+    },
+    stream_mode="updates",
+):
+    print(f"Event type: {chunk.event}")
+    print(chunk.data)
+```
+
+```javascript JavaScript
+const { Client } = await import("@langchain/langgraph-sdk");
+
+const client = new Client({
+  apiUrl: "your-deployment-url",
+  apiKey: "your-langsmith-api-key",
+});
+
+const streamResponse = client.runs.stream(null, "agent", {
+  input: {
+    messages: [{ role: "user", content: "What is LangGraph?" }],
+  },
+  streamMode: "messages",
+});
+
+for await (const chunk of streamResponse) {
+  console.log(`Event type: ${chunk.event}`);
+  console.log(JSON.stringify(chunk.data));
+}
+```
+</CodeGroup>
+
+You can also call the REST API directly:
+
+```bash
+curl -s --request POST \
+  --url <DEPLOYMENT_URL>/runs/stream \
+  --header 'Content-Type: application/json' \
+  --header "X-Api-Key: <LANGSMITH_API_KEY>" \
+  --data '{
+    "assistant_id": "agent",
+    "input": {
+      "messages": [{"role": "human", "content": "What is LangGraph?"}]
+    },
+    "stream_mode": "updates"
+  }'
+```
+
+### Threads and persistent state
+
+Create a thread to persist state across multiple interactions. The agent remembers prior context and can resume from any checkpoint:
+
+```python
+from langgraph_sdk import get_client
+
+client = get_client(url="your-deployment-url", api_key="your-api-key")
+
+# Create a thread
+thread = await client.threads.create()
+
+# First message
+async for chunk in client.runs.stream(
+    thread["thread_id"],
+    "agent",
+    input={"messages": [{"role": "human", "content": "My name is Alice."}]},
+    stream_mode="updates",
+):
+    print(chunk.data)
+
+# Follow-up — the agent remembers the context from the first message
+async for chunk in client.runs.stream(
+    thread["thread_id"],
+    "agent",
+    input={"messages": [{"role": "human", "content": "What is my name?"}]},
+    stream_mode="updates",
+):
+    print(chunk.data)
+```
+
+### Human-in-the-loop
+
+Agent Server supports pausing execution mid-run to wait for human approval or input. When your graph reaches an interrupt point, the run enters a `interrupted` state. Resume it after the human response:
+
+```python
+# Resume a run after human review
+await client.runs.resume(
+    thread_id=thread["thread_id"],
+    run_id=run["run_id"],
+    input={"human_approved": True},
+)
+```
+
+### Assistants
+
+Assistants let you deploy the same graph with different configurations. For example, you can have a `customer-service` assistant and a `research` assistant both backed by the same graph but with different system prompts or models:
+
+```python
+assistant = await client.assistants.create(
+    graph_id="agent",
+    config={
+        "configurable": {
+            "model": "claude-sonnet-4-6",
+            "system_prompt": "You are a customer service agent...",
+        }
+    },
+)
+```
+
+### Cron jobs
+
+Schedule recurring runs on a cron expression:
+
+```python
+cron_job = await client.crons.create(
+    assistant_id=assistant["assistant_id"],
+    schedule="0 9 * * 1-5",  # Every weekday at 9 AM
+    input={"messages": [{"role": "human", "content": "Generate daily report"}]},
+)
+```
+
+## Runtime architecture
+
+Agent Server uses a split API/worker architecture:
+
+- **API servers** handle client requests (creating runs, reading thread state, serving streaming connections) but do not execute agent code.
+- **Queue workers** pick up runs from a durable task queue, execute your graph, and write checkpoints. Workers scale independently from API servers.
+
+Persistence uses PostgreSQL for runs, threads, assistants, and checkpoints. Redis handles ephemeral pub/sub for streaming events between workers and API servers. No user data is stored in Redis.
+
+<Note>
+  LangSmith Cloud manages all infrastructure automatically. For self-hosted deployments, you provision and manage PostgreSQL and Redis yourself. See the [Deployment](/langsmith/deployment) guide for details.
+</Note>
+
+## Graph loading
+
+Register your graph in one of two ways in `langgraph.json`:
+
+- **Compiled graph** (recommended): Export a pre-compiled `CompiledGraph` instance. The server loads it once at startup with no compilation overhead per request.
+- **Factory function**: Export a function the server calls for each invocation. Use this only when you need per-run customization based on the assistant config.
+
+Do not configure a checkpointer or memory store in your graph code. Agent Server injects these at runtime based on the deployment configuration.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Studio" icon="layout-grid" href="/langsmith/studio">
+    Develop and debug your agents visually with Studio.
+  </Card>
+  <Card title="Deployment overview" icon="rocket" href="/langsmith/deployment">
+    Compare cloud, hybrid, and self-hosted deployment options.
+  </Card>
+</CardGroup>

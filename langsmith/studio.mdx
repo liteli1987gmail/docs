@@ -1,0 +1,166 @@
+---
+title: "Develop agents visually with LangSmith Studio"
+sidebarTitle: "Studio"
+description: "Visualize agent execution, inspect intermediate state, replay from any checkpoint with time-travel debugging, and iterate on prompts in LangSmith Studio."
+---
+
+Studio is an interactive IDE for developing and debugging agents. It connects to any Agent Server—whether running locally on your laptop or deployed to production—and gives you a visual interface for understanding what your agent is doing at every step.
+
+You can send messages, inspect the graph execution node by node, view and edit state at any checkpoint, replay runs from any prior point, and iterate on prompts without writing code. Studio also integrates with LangSmith tracing, evaluation, and the Prompt Hub.
+
+## What Studio lets you do
+
+- **Visualize graph execution**: See the nodes your agent traversed, the data that flowed between them, and the final state.
+- **Inspect intermediate state**: Click any checkpoint in a run to see the full graph state at that moment.
+- **Time-travel debug**: Replay a run from any earlier checkpoint, or edit state mid-execution to test alternative paths without rerunning the entire workflow.
+- **Manage assistants and threads**: Create, update, and delete assistants and threads directly from the UI.
+- **Run experiments**: Launch evaluation runs over a dataset from within Studio.
+- **Iterate on prompts**: Edit and save prompt commits tied to your deployed assistant.
+
+## Studio modes
+
+Studio supports two display modes depending on the type of agent you're working with:
+
+<Tabs>
+  <Tab title="Graph mode">
+    Graph mode exposes the full feature set: graph visualization, intermediate state at each node, LangSmith trace integration, and tools for adding states to datasets or opening them in the Playground. Use graph mode when you need detailed visibility into execution.
+  </Tab>
+  <Tab title="Chat mode">
+    Chat mode provides a simplified conversational interface for testing chat-based agents. It is useful for business stakeholders and for quickly iterating on overall response quality. Chat mode requires the agent's state to include or extend `MessagesState`.
+  </Tab>
+</Tabs>
+
+## Open Studio for a local agent
+
+<Steps>
+  <Step title="Install the LangGraph CLI">
+    <CodeGroup>
+    ```bash pip
+    pip install -U "langgraph-cli[inmem]"
+    ```
+    ```bash uv
+    uv add "langgraph-cli[inmem]"
+    ```
+    ```bash npm
+    npx @langchain/langgraph-cli dev
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Start the local development server">
+    From your project directory, run:
+
+    <CodeGroup>
+    ```bash pip
+    langgraph dev
+    ```
+    ```bash uv
+    langgraph dev
+    ```
+    </CodeGroup>
+
+    The CLI starts Agent Server in-memory with hot reload on code changes. You'll see output like:
+
+    ```
+    > Ready!
+    >
+    > - API: http://localhost:2024
+    >
+    > - Docs: http://localhost:2024/docs
+    >
+    > - LangSmith Studio Web UI: https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
+    ```
+
+    Studio opens automatically in your browser connected to the local server.
+  </Step>
+
+  <Step title="Connect to Studio manually (if needed)">
+    If the browser doesn't open automatically, navigate directly to:
+
+    ```
+    https://smith.langchain.com/studio/?baseUrl=http://127.0.0.1:2024
+    ```
+
+    Or go to **Deployments** in the LangSmith UI, click **Studio**, enter `http://127.0.0.1:2024`, and click **Connect**.
+
+    <Warning>
+      Safari blocks `localhost` connections to Studio. Run `langgraph dev --tunnel` to use a secure tunnel instead, then add the tunnel URL to allowed origins by clicking **Connect to a local server** in the Studio UI.
+    </Warning>
+  </Step>
+
+  <Step title="Send a message and inspect execution">
+    Type a message in the Studio chat input and press **Send**. Studio displays the graph visualization with the execution path highlighted and a state inspector for each checkpoint.
+  </Step>
+</Steps>
+
+## Open Studio for a deployed agent
+
+For agents deployed to LangSmith Cloud or a self-hosted server:
+
+1. Go to [LangSmith](https://smith.langchain.com) and select **Deployments** in the left sidebar.
+2. Select your deployment to view its details.
+3. Click **Studio** in the top-right corner.
+
+Studio connects to the live deployment and lets you read and update threads, assistants, and memory in that deployment.
+
+## Time-travel debugging
+
+Studio records a checkpoint after every node execution. To replay from an earlier state:
+
+1. Select a run in the **Threads** panel to open the execution history.
+2. Click any checkpoint in the timeline to view the graph state at that moment.
+3. Click **Fork from here** to create a new branch of execution starting from that checkpoint, with the option to edit the state before resuming.
+
+This lets you investigate exactly where an agent went wrong without re-running the full workflow from the beginning.
+
+## Attach a debugger
+
+For step-by-step debugging with breakpoints and variable inspection, start the server with the `--debug-port` flag:
+
+<CodeGroup>
+```bash pip
+pip install debugpy
+langgraph dev --debug-port 5678
+```
+```bash uv
+uv add debugpy
+langgraph dev --debug-port 5678
+```
+</CodeGroup>
+
+Then attach your IDE:
+
+<Tabs>
+  <Tab title="VS Code">
+    Add this configuration to `launch.json`:
+
+    ```json
+    {
+      "name": "Attach to LangGraph",
+      "type": "debugpy",
+      "request": "attach",
+      "connect": {
+        "host": "0.0.0.0",
+        "port": 5678
+      }
+    }
+    ```
+  </Tab>
+  <Tab title="PyCharm">
+    1. Go to **Run → Edit Configurations**.
+    2. Click **+** and select **Python Debug Server**.
+    3. Set IDE host name to `localhost` and port to `5678`.
+    4. Click **OK** and start debugging.
+  </Tab>
+</Tabs>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Agent Server" icon="cpu" href="/langsmith/agent-server">
+    Learn about the runtime architecture and capabilities that Studio connects to.
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/langsmith/deployment">
+    Deploy your agent to cloud, hybrid, or self-hosted infrastructure.
+  </Card>
+</CardGroup>

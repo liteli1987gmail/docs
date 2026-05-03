@@ -1,0 +1,138 @@
+---
+title: "LangGraph: orchestrate stateful agent workflows"
+sidebarTitle: "Overview"
+description: "LangGraph is a low-level orchestration framework for building stateful, long-running agents with durable execution, streaming, and human-in-the-loop support."
+---
+
+LangGraph is a low-level orchestration framework and runtime for building, managing, and deploying long-running, stateful agents. Trusted by companies including Klarna, Uber, and J.P. Morgan, LangGraph focuses entirely on agent **orchestration** rather than abstracting prompts or architecture. You define nodes, edges, and state; LangGraph handles durable execution, streaming, human-in-the-loop checkpointing, and fault tolerance.
+
+Before using LangGraph directly, familiarize yourself with the components used to build agents—[models](/oss/langchain/models) and [tools](/oss/langchain/tools) are a good starting point. If you want a higher-level abstraction for common LLM and tool-calling loops, LangChain's [agents](/oss/langchain/agents) provide prebuilt architectures built on top of LangGraph.
+
+## Install
+
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+      ```bash pip
+      pip install -U langgraph
+      ```
+
+      ```bash uv
+      uv add langgraph
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="TypeScript">
+    <CodeGroup>
+      ```bash npm
+      npm install @langchain/langgraph @langchain/core
+      ```
+
+      ```bash pnpm
+      pnpm add @langchain/langgraph @langchain/core
+      ```
+
+      ```bash yarn
+      yarn add @langchain/langgraph @langchain/core
+      ```
+
+      ```bash bun
+      bun add @langchain/langgraph @langchain/core
+      ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+## Simple two-node graph
+
+The following example creates a minimal graph with a single node that returns a greeting. It illustrates the four building blocks you use in every LangGraph application: a `StateGraph`, a node function, edges connecting `START` and `END`, and a `compile()` call that produces a runnable graph.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from langgraph.graph import StateGraph, MessagesState, START, END
+
+    def mock_llm(state: MessagesState):
+        return {"messages": [{"role": "ai", "content": "hello world"}]}
+
+    graph = StateGraph(MessagesState)
+    graph.add_node(mock_llm)
+    graph.add_edge(START, "mock_llm")
+    graph.add_edge("mock_llm", END)
+    graph = graph.compile()
+
+    graph.invoke({"messages": [{"role": "user", "content": "hi!"}]})
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { StateSchema, MessagesValue, GraphNode, StateGraph, START, END } from "@langchain/langgraph";
+
+    const State = new StateSchema({
+      messages: MessagesValue,
+    });
+
+    const mockLlm: GraphNode<typeof State> = (state) => {
+      return { messages: [{ role: "ai", content: "hello world" }] };
+    };
+
+    const graph = new StateGraph(State)
+      .addNode("mock_llm", mockLlm)
+      .addEdge(START, "mock_llm")
+      .addEdge("mock_llm", END)
+      .compile();
+
+    await graph.invoke({ messages: [{ role: "user", content: "hi!" }] });
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+Use [LangSmith](/langsmith/overview) to trace requests, debug agent behavior, and evaluate outputs. Set `LANGSMITH_TRACING=true` and your API key to get started.
+</Tip>
+
+## Core concepts
+
+### StateGraph
+
+A `StateGraph` is the central object you use to define an agent workflow. You pass it a **state schema**—a typed dictionary that describes every key the graph tracks across its execution. Nodes read from the state and return updates to it; the graph merges those updates automatically.
+
+### Nodes
+
+A node is any callable (function or object) that receives the current state and returns a dictionary of updates. Nodes are where the work happens: calling an LLM, executing a tool, transforming data, or making a routing decision.
+
+### Edges
+
+Edges connect nodes and determine the order of execution. A **regular edge** always routes from one node to another. A **conditional edge** calls a function that returns the name of the next node, enabling branching and looping logic.
+
+### Checkpointers
+
+A checkpointer saves a snapshot of the graph state after every execution step. Checkpointers power durable execution (resuming after failures), human-in-the-loop (pausing for approval), multi-turn memory (resuming a conversation), and time travel (replaying or forking from a past state).
+
+## When to use LangGraph vs LangChain
+
+| Scenario | Recommendation |
+|---|---|
+| You need a prebuilt tool-calling agent loop | Use [LangChain agents](/oss/langchain/agents) |
+| You want to customize flow control, state, or execution order | Use LangGraph |
+| You need long-running, fault-tolerant workflows | Use LangGraph |
+| You are building multi-agent or hierarchical agent systems | Use LangGraph |
+
+## Core benefits
+
+- **Durable execution**: Agents persist through failures and resume from where they left off.
+- **Human-in-the-loop**: Inspect and modify agent state at any point during execution.
+- **Memory**: Short-term working memory per thread and long-term memory across sessions via the Memory Store.
+- **Streaming**: Surface token-by-token LLM output and node updates in real time.
+- **Observability**: Deep visibility into execution paths and state transitions via LangSmith.
+
+## Explore further
+
+<CardGroup cols={2}>
+  <Card title="Persistence and memory" icon="database" href="/oss/langgraph/persistence">
+    Add checkpointers to your graph for multi-turn memory and fault tolerance.
+  </Card>
+  <Card title="Streaming" icon="player-play" href="/oss/langgraph/streaming">
+    Stream token-by-token LLM output and node updates to your clients.
+  </Card>
+</CardGroup>

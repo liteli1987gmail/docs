@@ -1,0 +1,68 @@
+---
+title: "Trigger Fleet agents automatically with channels"
+sidebarTitle: "Channels"
+description: "Configure channels so your Fleet agent responds automatically to Slack messages, Gmail, Microsoft Teams, and other external events."
+---
+
+Channels define when your Fleet agent starts running automatically. Instead of triggering your agent manually from chat, channels let it respond to real-world events — like an incoming email, a Slack message, or a scheduled time.
+
+<Tip>
+To trigger an agent on a recurring schedule rather than an event, use [schedules](https://smith.langchain.com/agents) in the Fleet settings.
+</Tip>
+
+## Add a channel
+
+<Steps>
+  <Step title="Open the agent editor">
+    In [Fleet](https://smith.langchain.com/agents), open your agent and click the **Edit Agent** icon next to the agent name.
+  </Step>
+  <Step title="Add the channel">
+    In the **Channels** section, click **+ Add** and select the channel you want to connect.
+  </Step>
+  <Step title="Authenticate">
+    Follow the prompts to connect your account and authorize the channel.
+  </Step>
+</Steps>
+
+## Gmail channel
+
+The Gmail channel activates your agent whenever a new email arrives in your primary inbox. To allow your agent to read and respond to emails, also add Gmail tools in the **Toolbox** section.
+
+<Warning>
+The Gmail channel only monitors your **primary inbox**. The following messages do not trigger it:
+
+- Emails sent to an alias address
+- Mailing list or group emails
+- Messages filtered out of the inbox (spam, trash, or other folders)
+</Warning>
+
+## Slack channel
+
+The default Slack channel activates your agent when messages are posted in a connected Slack channel. It triggers on every message in the channel and cannot receive direct messages.
+
+<Tip>
+For tag-only triggering or direct message support, connect a custom Slack bot instead. See the Fleet integrations tab for instructions.
+</Tip>
+
+## Microsoft Teams channel
+
+The Teams channel activates your agent when messages are sent in Microsoft Teams conversations. Full setup requires an Azure Bot registration and credential configuration — see the [Fleet > Integrations tab](https://smith.langchain.com/agents/tools) for step-by-step instructions.
+
+## Pause and resume channels
+
+You can pause all channels on an agent without removing them:
+
+1. Open your agent in [Fleet](https://smith.langchain.com/agents) and click **Edit Agent**.
+2. In the **Channels** section, click **Pause channels**.
+3. To resume, click **Resume channels**.
+
+## Thread behavior
+
+How conversations are marked as read depends on the trigger type:
+
+| Trigger type | Read behavior |
+|---|---|
+| Chat (no channel) | Responses mark the thread as **unread** |
+| Channel-based trigger | Responses keep the thread as **read** |
+
+You can manually mark any thread as read or unread at any time.

@@ -1,0 +1,172 @@
+---
+title: "Test and iterate prompts in the LangSmith Playground"
+sidebarTitle: "Playground"
+description: "Test prompts against supported model providers, compare outputs, configure parameters, and run dataset evaluations from the LangSmith Playground."
+---
+
+The Playground is LangSmith's interactive environment for writing, testing, and refining prompts. You can send a prompt to any supported model provider, inspect the output, adjust parameters, and save the result as a versioned prompt commit. The Playground also connects to your datasets so you can run evaluations without leaving the UI.
+
+## What you can do in the Playground
+
+- **Write and edit prompts**: Compose system, human, AI, and tool messages with template variables.
+- **Configure models**: Select a provider and model, then tune temperature, max tokens, top-p, and other parameters.
+- **Run single inputs**: Enter test values for your template variables and click **Start** to get an immediate response.
+- **Compare outputs**: Open multiple Playground instances to see how different prompts or models respond to the same input.
+- **Run evaluations over datasets**: Connect a dataset and evaluator to benchmark your prompt across many examples at once.
+- **Save commits**: Click **Save** to store the current prompt and model configuration as a versioned commit in the Prompt Hub.
+
+## Open the Playground
+
+You can reach the Playground in three ways:
+
+1. **From the sidebar**: Click **Playground** in the left navigation.
+2. **From a trace**: Open any trace in **Tracing Projects** and click **Open in Playground** to load the exact inputs and prompt that produced that trace. This lets you reproduce a specific run and experiment with changes.
+3. **From a saved prompt**: Navigate to **Prompts**, select a prompt, and click **Edit in Playground**.
+
+## Model configuration
+
+Click the gear icon next to the model name to open **Prompt Settings**. From there you can change the **Provider**, **Model**, and any provider-specific parameters. The selected configuration is saved with the prompt.
+
+Key parameters available across most providers:
+
+| Parameter | Description |
+|-----------|-------------|
+| Temperature | Controls randomness. Lower values produce more focused outputs; higher values produce more varied outputs. |
+| Max output tokens | Maximum number of tokens in the response. |
+| Top P | Nucleus sampling threshold. An alternative to temperature. |
+| Reasoning effort | Available on reasoning-optimized models. Controls depth of reasoning before responding. |
+
+<Note>
+  The model configuration you select in the Playground is saved with the prompt commit. When you reopen the prompt, the same provider and model load automatically.
+</Note>
+
+## Run evaluations from the Playground
+
+You can run an evaluation directly from the Playground without writing any code.
+
+<Steps>
+  <Step title="Set up a prompt">
+    Write or load a prompt in the Playground. Ensure any template variables match the input keys in your dataset.
+  </Step>
+  <Step title="Open the evaluation panel">
+    Click **Set up Evaluation** in the Playground to open the **New Experiment** table at the bottom of the page.
+  </Step>
+  <Step title="Select or create a dataset">
+    Use the **Select or create a new dataset** dropdown. Click **+ New** to create a dataset with example rows inline, or choose an existing dataset.
+  </Step>
+  <Step title="Add an evaluator">
+    Click **+ Evaluator** and select a prebuilt evaluator such as **Correctness**, or configure a custom evaluator.
+  </Step>
+  <Step title="Run the experiment">
+    Click **Start** to run the prompt against every example in the dataset. LangSmith creates an experiment and shows a preview in the **New Experiment** table. Click the experiment name to open the full results view.
+  </Step>
+</Steps>
+
+## Supported model providers
+
+The Playground supports the following providers. Select a provider, supply your API key (or configure authentication in workspace secrets), and choose a model.
+
+<CardGroup cols={3}>
+  <Card title="OpenAI" icon="brand-openai">
+    GPT series and o-series reasoning models. Supports parallel tool calls, JSON mode, and reasoning effort control.
+  </Card>
+  <Card title="Anthropic" icon="robot">
+    Claude Opus, Sonnet, and Haiku models. Supports extended thinking for step-by-step reasoning.
+  </Card>
+  <Card title="Google Gemini" icon="brand-google">
+    Gemini Ultra, Pro, and Flash models via the Google AI API.
+  </Card>
+  <Card title="Google Vertex AI" icon="cloud">
+    Gemini models via Google Cloud Vertex AI with regional deployment and safety settings.
+  </Card>
+  <Card title="Azure OpenAI" icon="brand-azure">
+    OpenAI model families deployed on Azure with managed identity and private endpoint support.
+  </Card>
+  <Card title="Amazon Bedrock" icon="brand-aws">
+    Anthropic Claude, Amazon Titan, Meta Llama, and Cohere models via AWS Bedrock. Supports IAM trusted entity authentication.
+  </Card>
+  <Card title="Mistral AI" icon="wind">
+    Mistral Large, Medium, and Small models.
+  </Card>
+  <Card title="Groq" icon="bolt">
+    High-speed inference for Llama, Mixtral, and Gemma variants.
+  </Card>
+  <Card title="Fireworks" icon="flame">
+    Open-source models including Llama, Mixtral, Qwen, and DeepSeek.
+  </Card>
+  <Card title="DeepSeek" icon="brain">
+    General-purpose, reasoning-optimized, and coding models.
+  </Card>
+  <Card title="xAI" icon="circle-x">
+    Grok models in multiple sizes.
+  </Card>
+  <Card title="OpenAI-compatible endpoint" icon="link">
+    Any server implementing the OpenAI API format, including local Ollama, vLLM, and LiteLLM proxy.
+  </Card>
+</CardGroup>
+
+### Amazon Bedrock authentication
+
+Amazon Bedrock supports two authentication methods:
+
+<Tabs>
+  <Tab title="IAM trusted entity (recommended)">
+    Create an IAM role in your AWS account and configure LangSmith to assume it. No long-lived access keys are stored in LangSmith.
+
+    Add this trust policy to your IAM role, using your LangSmith workspace ID as the external ID:
+
+    ```json
+    {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "AWS": "arn:aws:iam::808407022534:root"
+          },
+          "Action": "sts:AssumeRole",
+          "Condition": {
+            "StringEquals": {
+              "sts:ExternalId": "<your-langsmith-workspace-id>"
+            }
+          }
+        }
+      ]
+    }
+    ```
+
+    Then enter your role ARN in the **IAM Trusted Entity** section under the Bedrock provider in the Playground.
+  </Tab>
+  <Tab title="Access keys">
+    Enter your `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in the Bedrock provider configuration. This is simpler to set up but stores long-lived credentials in LangSmith.
+  </Tab>
+</Tabs>
+
+### OpenAI-compatible endpoints
+
+Any framework that implements the OpenAI API format works with the Playground. Set the **Base URL** and **Model Name** in the provider configuration:
+
+```
+# Local Ollama
+Base URL: http://localhost:11434/v1
+Model: llama3.1
+
+# vLLM server
+Base URL: https://your-server.com/v1
+Model: mistral-7b-instruct
+```
+
+## Rate limiting
+
+When running evaluations over datasets, set a **Requests Per Second (RPS)** limit (0–500) in the provider configuration to avoid hitting rate limits on your API key.
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Manage prompts" icon="tags" href="/langsmith/prompts">
+    Version, tag, and pull prompts programmatically from the Prompt Hub.
+  </Card>
+  <Card title="Evaluation datasets" icon="database" href="/langsmith/datasets">
+    Build datasets to run evaluations against in the Playground.
+  </Card>
+</CardGroup>

@@ -1,0 +1,308 @@
+---
+title: "Add persistence and memory to LangGraph agents"
+sidebarTitle: "Persistence"
+description: "LangGraph checkpointers save graph state after every step, enabling multi-turn memory, fault-tolerant execution, human-in-the-loop workflows, and time travel."
+---
+
+LangGraph has a built-in persistence layer that saves graph state as checkpoints. When you compile a graph with a checkpointer, a snapshot of the graph state is saved at every step of execution, organized into threads. This enables human-in-the-loop workflows, conversational memory, time travel debugging, and fault-tolerant execution.
+
+<Note>
+When using the [Agent Server](/langsmith/agent-server), you don't need to implement or configure checkpointers manually. The server handles all persistence infrastructure for you.
+</Note>
+
+## Why use persistence
+
+Persistence is required for the following features:
+
+- **Human-in-the-loop**: Checkpointers let humans inspect, interrupt, and approve graph steps. The graph must be able to resume after a human modifies its state.
+- **Memory**: Checkpointers enable memory between interactions. In repeated conversations, follow-up messages sent to the same thread retain context from previous turns.
+- **Time travel**: Checkpointers allow you to replay prior graph executions, review specific steps, and fork the graph state at arbitrary points to explore alternative trajectories.
+- **Fault tolerance**: If a node fails, you can restart the graph from the last successful checkpoint rather than from the beginning.
+
+## Add a checkpointer to a graph
+
+Attach a checkpointer when you call `compile()`. The example below uses `InMemorySaver` for development; see [checkpointer libraries](#checkpointer-libraries) for production options.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from langgraph.graph import StateGraph, START, END
+    from langgraph.checkpoint.memory import InMemorySaver
+    from langchain_core.runnables import RunnableConfig
+    from typing import Annotated
+    from typing_extensions import TypedDict
+    from operator import add
+
+    class State(TypedDict):
+        foo: str
+        bar: Annotated[list[str], add]
+
+    def node_a(state: State):
+        return {"foo": "a", "bar": ["a"]}
+
+    def node_b(state: State):
+        return {"foo": "b", "bar": ["b"]}
+
+    workflow = StateGraph(State)
+    workflow.add_node(node_a)
+    workflow.add_node(node_b)
+    workflow.add_edge(START, "node_a")
+    workflow.add_edge("node_a", "node_b")
+    workflow.add_edge("node_b", END)
+
+    checkpointer = InMemorySaver()
+    graph = workflow.compile(checkpointer=checkpointer)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { StateGraph, StateSchema, ReducedValue, START, END, MemorySaver } from "@langchain/langgraph";
+    import { z } from "zod/v4";
+
+    const State = new StateSchema({
+      foo: z.string(),
+      bar: new ReducedValue(
+        z.array(z.string()).default(() => []),
+        {
+          inputSchema: z.array(z.string()),
+          reducer: (x, y) => x.concat(y),
+        }
+      ),
+    });
+
+    const workflow = new StateGraph(State)
+      .addNode("nodeA", (state) => {
+        return { foo: "a", bar: ["a"] };
+      })
+      .addNode("nodeB", (state) => {
+        return { foo: "b", bar: ["b"] };
+      })
+      .addEdge(START, "nodeA")
+      .addEdge("nodeA", "nodeB")
+      .addEdge("nodeB", END);
+
+    const checkpointer = new MemorySaver();
+    const graph = workflow.compile({ checkpointer });
+    ```
+  </Tab>
+</Tabs>
+
+## Thread IDs for multi-turn conversations
+
+A **thread** is a unique identifier assigned to a sequence of runs. When you invoke a graph with a checkpointer, you **must** pass a `thread_id` inside the `configurable` key of the config. The checkpointer uses `thread_id` as the primary key for storing and retrieving checkpoints.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    config: RunnableConfig = {"configurable": {"thread_id": "1"}}
+    graph.invoke({"foo": "", "bar": []}, config)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    const config = { configurable: { thread_id: "1" } };
+    await graph.invoke({ foo: "", bar: [] }, config);
+    ```
+  </Tab>
+</Tabs>
+
+Without a `thread_id`, the checkpointer cannot save state or resume execution after an interrupt.
+
+After the graph runs, you will have exactly 4 checkpoints for the two-node example above:
+
+1. Empty checkpoint with `START` as the next node to execute
+2. Checkpoint with the user input and `node_a` as the next node
+3. Checkpoint with the outputs of `node_a` and `node_b` as the next node
+4. Checkpoint with the final outputs and no next nodes
+
+## Read state from a checkpoint
+
+### Get the latest state
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    # Get the latest state snapshot
+    config = {"configurable": {"thread_id": "1"}}
+    graph.get_state(config)
+
+    # Get a state snapshot for a specific checkpoint_id
+    config = {"configurable": {"thread_id": "1", "checkpoint_id": "1ef663ba-28fe-6528-8002-5a559208592c"}}
+    graph.get_state(config)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    // Get the latest state snapshot
+    const config = { configurable: { thread_id: "1" } };
+    await graph.getState(config);
+
+    // Get a state snapshot for a specific checkpoint_id
+    const configWithId = {
+      configurable: {
+        thread_id: "1",
+        checkpoint_id: "1ef663ba-28fe-6528-8002-5a559208592c",
+      },
+    };
+    await graph.getState(configWithId);
+    ```
+  </Tab>
+</Tabs>
+
+### Get full state history
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    config = {"configurable": {"thread_id": "1"}}
+    list(graph.get_state_history(config))
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    const config = { configurable: { thread_id: "1" } };
+    for await (const state of graph.getStateHistory(config)) {
+      console.log(state);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+The history is ordered chronologically with the most recent snapshot first.
+
+### Find a specific checkpoint
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    history = list(graph.get_state_history(config))
+
+    # Find the checkpoint before a specific node executed
+    before_node_b = next(s for s in history if s.next == ("node_b",))
+
+    # Find a checkpoint by step number
+    step_2 = next(s for s in history if s.metadata["step"] == 2)
+
+    # Find checkpoints created by update_state
+    forks = [s for s in history if s.metadata["source"] == "update"]
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    const history: StateSnapshot[] = [];
+    for await (const state of graph.getStateHistory(config)) {
+      history.push(state);
+    }
+
+    // Find the checkpoint before a specific node executed
+    const beforeNodeB = history.find((s) => s.next.includes("nodeB"));
+
+    // Find a checkpoint by step number
+    const step2 = history.find((s) => s.metadata.step === 2);
+
+    // Find checkpoints created by updateState
+    const forks = history.filter((s) => s.metadata.source === "update");
+    ```
+  </Tab>
+</Tabs>
+
+## Resume from a checkpoint
+
+**Replay** re-executes steps from a prior checkpoint. Pass a prior `checkpoint_id` to re-run nodes after that point. Nodes before the checkpoint are skipped because their results are already saved; nodes after the checkpoint re-execute, including any LLM calls, API requests, or interrupts.
+
+See [Streaming](/oss/langgraph/streaming) for full details and code examples.
+
+## Memory store
+
+Checkpointers save state within a single thread. To share information **across threads**, use the `Store` interface. For example, to remember user preferences across all conversations with a user, store that data in a `InMemoryStore` (development) or a production store such as `PostgresStore`.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from langgraph.store.memory import InMemoryStore
+
+    store = InMemoryStore()
+    user_id = "1"
+    namespace_for_memory = (user_id, "memories")
+
+    import uuid
+    memory_id = str(uuid.uuid4())
+    memory = {"food_preference": "I like pizza"}
+    store.put(namespace_for_memory, memory_id, memory)
+
+    memories = store.search(namespace_for_memory)
+    memories[-1].dict()
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { MemoryStore } from "@langchain/langgraph";
+    import { v4 as uuidv4 } from "uuid";
+
+    const memoryStore = new MemoryStore();
+    const userId = "1";
+    const namespaceForMemory = [userId, "memories"];
+
+    const memoryId = uuidv4();
+    const memory = { food_preference: "I like pizza" };
+    await memoryStore.put(namespaceForMemory, memoryId, memory);
+
+    const memories = await memoryStore.search(namespaceForMemory);
+    console.log(memories[memories.length - 1]);
+    ```
+  </Tab>
+</Tabs>
+
+Compile the graph with both the checkpointer and the store:
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from dataclasses import dataclass
+    from langgraph.checkpoint.memory import InMemorySaver
+
+    @dataclass
+    class Context:
+        user_id: str
+
+    checkpointer = InMemorySaver()
+    builder = StateGraph(MessagesState, context_schema=Context)
+    # ... add nodes and edges ...
+    graph = builder.compile(checkpointer=checkpointer, store=store)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { MemorySaver } from "@langchain/langgraph";
+
+    const checkpointer = new MemorySaver();
+    const graph = workflow.compile({ checkpointer, store: memoryStore });
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+`InMemoryStore` is suitable for development and testing. For production, use a persistent store such as `PostgresStore`, `MongoDBStore`, or `RedisStore`.
+</Note>
+
+## Checkpointer libraries
+
+<Tabs>
+  <Tab title="Python">
+    | Package | Description |
+    |---|---|
+    | `langgraph-checkpoint` (included) | Base interface (`BaseCheckpointSaver`) and in-memory implementation (`InMemorySaver`). |
+    | `langgraph-checkpoint-sqlite` | SQLite-backed checkpointer (`SqliteSaver` / `AsyncSqliteSaver`). Good for local workflows. |
+    | `langgraph-checkpoint-postgres` | PostgreSQL-backed checkpointer (`PostgresSaver` / `AsyncPostgresSaver`). Recommended for production. |
+    | `langchain-azure-cosmosdb` | Azure Cosmos DB for NoSQL checkpointer (`CosmosDBSaverSync` / `CosmosDBSaver`). |
+  </Tab>
+  <Tab title="TypeScript">
+    | Package | Description |
+    |---|---|
+    | `@langchain/langgraph-checkpoint` (included) | Base interface and in-memory implementation (`MemorySaver`). |
+    | `@langchain/langgraph-checkpoint-sqlite` | SQLite-backed checkpointer (`SqliteSaver`). Good for local workflows. |
+    | `@langchain/langgraph-checkpoint-postgres` | PostgreSQL-backed checkpointer (`PostgresSaver`). Recommended for production. |
+    | `@langchain/langgraph-checkpoint-mongodb` | MongoDB checkpointer (`MongoDBSaver`) and store (`MongoDBStore`) with optional vector search. |
+    | `@langchain/langgraph-checkpoint-redis` | Redis-backed checkpointer (`RedisSaver`). |
+  </Tab>
+</Tabs>

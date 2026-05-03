@@ -1,0 +1,384 @@
+---
+title: "Stream agent responses with LangGraph"
+sidebarTitle: "Streaming"
+description: "Stream real-time output from LangGraph agents — token-by-token LLM responses, node state updates, custom events, and debug information as execution happens."
+---
+
+LangGraph implements a streaming system to surface real-time updates as a graph executes. Streaming is crucial for improving responsiveness in LLM-powered applications—displaying output progressively, even before a complete response is ready, significantly reduces perceived latency.
+
+## Basic usage
+
+<Tabs>
+  <Tab title="Python">
+    LangGraph graphs expose `stream()` (sync) and `astream()` (async) methods that yield streamed output as iterators. Pass one or more [stream modes](#stream-modes) to control what data you receive.
+
+    ```python
+    for chunk in graph.stream(
+        {"topic": "ice cream"},
+        stream_mode=["updates", "custom"],  # choose your modes
+        version="v2",
+    ):
+        if chunk["type"] == "updates":
+            for node_name, state in chunk["data"].items():
+                print(f"Node {node_name} updated: {state}")
+        elif chunk["type"] == "custom":
+            print(f"Status: {chunk['data']['status']}")
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    LangGraph graphs expose the `stream()` method to yield streamed outputs as async iterators.
+
+    ```typescript
+    for await (const chunk of await graph.stream(inputs, {
+      streamMode: "updates",
+    })) {
+      console.log(chunk);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+The `version="v2"` parameter (Python, LangGraph >= 1.1) enables a unified `StreamPart` output format. Every chunk is a dict with `type`, `ns` (namespace), and `data` fields, regardless of which stream modes you combine. All Python examples on this page use `version="v2"`.
+</Note>
+
+## Stream modes
+
+<Tabs>
+  <Tab title="Python">
+    | Mode | Description |
+    |---|---|
+    | `values` | Full state snapshot after each step. |
+    | `updates` | Only the changed keys returned by each node. |
+    | `messages` | `(message_chunk, metadata)` tuples streamed token-by-token from LLM calls. |
+    | `custom` | Arbitrary data emitted from nodes via `get_stream_writer()`. |
+    | `checkpoints` | Checkpoint events matching the `get_state()` format. Requires a checkpointer. |
+    | `tasks` | Task start and finish events with results and errors. Requires a checkpointer. |
+    | `debug` | All available information. Combines `checkpoints` and `tasks` with extra metadata. |
+  </Tab>
+  <Tab title="TypeScript">
+    | Mode | Description |
+    |---|---|
+    | `values` | Full state snapshot after each step. |
+    | `updates` | Only the changed keys returned by each node. |
+    | `messages` | `[message_chunk, metadata]` tuples streamed token-by-token from LLM calls. |
+    | `custom` | Arbitrary data emitted from nodes via `config.writer()`. |
+    | `tools` | Lifecycle events for tool executions (`on_tool_start`, `on_tool_event`, `on_tool_end`, `on_tool_error`). |
+    | `debug` | All available information throughout graph execution. |
+  </Tab>
+</Tabs>
+
+### Graph state: `updates` and `values`
+
+Use `updates` to receive only what changed; use `values` to receive the full state after every step.
+
+<Tabs>
+  <Tab title="updates (Python)">
+    ```python
+    from typing import TypedDict
+    from langgraph.graph import StateGraph, START, END
+
+    class State(TypedDict):
+      topic: str
+      joke: str
+
+    def refine_topic(state: State):
+        return {"topic": state["topic"] + " and cats"}
+
+    def generate_joke(state: State):
+        return {"joke": f"This is a joke about {state['topic']}"}
+
+    graph = (
+      StateGraph(State)
+      .add_node(refine_topic)
+      .add_node(generate_joke)
+      .add_edge(START, "refine_topic")
+      .add_edge("refine_topic", "generate_joke")
+      .add_edge("generate_joke", END)
+      .compile()
+    )
+
+    for chunk in graph.stream(
+        {"topic": "ice cream"},
+        stream_mode="updates",
+        version="v2",
+    ):
+        if chunk["type"] == "updates":
+            for node_name, state in chunk["data"].items():
+                print(f"Node `{node_name}` updated: {state}")
+    ```
+
+    ```shell title="Output"
+    Node `refine_topic` updated: {'topic': 'ice cream and cats'}
+    Node `generate_joke` updated: {'joke': 'This is a joke about ice cream and cats'}
+    ```
+  </Tab>
+  <Tab title="values (Python)">
+    ```python
+    for chunk in graph.stream(
+        {"topic": "ice cream"},
+        stream_mode="values",
+        version="v2",
+    ):
+        if chunk["type"] == "values":
+            print(f"topic: {chunk['data']['topic']}, joke: {chunk['data']['joke']}")
+    ```
+
+    ```shell title="Output"
+    topic: ice cream, joke:
+    topic: ice cream and cats, joke:
+    topic: ice cream and cats, joke: This is a joke about ice cream and cats
+    ```
+  </Tab>
+  <Tab title="updates (TypeScript)">
+    ```typescript
+    import { StateGraph, StateSchema, START, END } from "@langchain/langgraph";
+    import { z } from "zod/v4";
+
+    const State = new StateSchema({
+      topic: z.string(),
+      joke: z.string(),
+    });
+
+    const graph = new StateGraph(State)
+      .addNode("refineTopic", (state) => {
+        return { topic: state.topic + " and cats" };
+      })
+      .addNode("generateJoke", (state) => {
+        return { joke: `This is a joke about ${state.topic}` };
+      })
+      .addEdge(START, "refineTopic")
+      .addEdge("refineTopic", "generateJoke")
+      .addEdge("generateJoke", END)
+      .compile();
+
+    for await (const chunk of await graph.stream(
+      { topic: "ice cream" },
+      { streamMode: "updates" }
+    )) {
+      for (const [nodeName, state] of Object.entries(chunk)) {
+        console.log(`Node ${nodeName} updated:`, state);
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Stream LLM tokens: `messages`
+
+Use the `messages` streaming mode to receive LLM output **token by token** from any node, tool, subgraph, or task in your graph.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from dataclasses import dataclass
+    from langchain.chat_models import init_chat_model
+    from langgraph.graph import StateGraph, START
+
+    @dataclass
+    class MyState:
+        topic: str
+        joke: str = ""
+
+    model = init_chat_model(model="gpt-5.4-mini")
+
+    def call_model(state: MyState):
+        model_response = model.invoke(
+            [{"role": "user", "content": f"Generate a joke about {state.topic}"}]
+        )
+        return {"joke": model_response.content}
+
+    graph = (
+        StateGraph(MyState)
+        .add_node(call_model)
+        .add_edge(START, "call_model")
+        .compile()
+    )
+
+    for chunk in graph.stream(
+        {"topic": "ice cream"},
+        stream_mode="messages",
+        version="v2",
+    ):
+        if chunk["type"] == "messages":
+            message_chunk, metadata = chunk["data"]
+            if message_chunk.content:
+                print(message_chunk.content, end="|", flush=True)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { ChatOpenAI } from "@langchain/openai";
+    import { StateGraph, StateSchema, GraphNode, START } from "@langchain/langgraph";
+    import * as z from "zod";
+
+    const MyState = new StateSchema({
+      topic: z.string(),
+      joke: z.string().default(""),
+    });
+
+    const model = new ChatOpenAI({ model: "gpt-5.4-mini" });
+
+    const callModel: GraphNode<typeof MyState> = async (state) => {
+      const modelResponse = await model.invoke([
+        { role: "user", content: `Generate a joke about ${state.topic}` },
+      ]);
+      return { joke: modelResponse.content };
+    };
+
+    const graph = new StateGraph(MyState)
+      .addNode("callModel", callModel)
+      .addEdge(START, "callModel")
+      .compile();
+
+    for await (const [messageChunk, metadata] of await graph.stream(
+      { topic: "ice cream" },
+      { streamMode: "messages" }
+    )) {
+      if (messageChunk.content) {
+        process.stdout.write(messageChunk.content + "|");
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+You can filter token streams by node name using the `langgraph_node` field in the metadata, or by LLM tags when you want only specific model invocations.
+
+### Custom data
+
+Use the `custom` stream mode to emit arbitrary data from inside a node or tool.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from typing import TypedDict
+    from langgraph.config import get_stream_writer
+    from langgraph.graph import StateGraph, START
+
+    class State(TypedDict):
+        query: str
+        answer: str
+
+    def node(state: State):
+        writer = get_stream_writer()
+        writer({"custom_key": "Generating custom data inside node"})
+        return {"answer": "some data"}
+
+    graph = (
+        StateGraph(State)
+        .add_node(node)
+        .add_edge(START, "node")
+        .compile()
+    )
+
+    for chunk in graph.stream({"query": "example"}, stream_mode="custom", version="v2"):
+        if chunk["type"] == "custom":
+            print(f"Custom event: {chunk['data']['custom_key']}")
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { StateGraph, StateSchema, GraphNode, START } from "@langchain/langgraph";
+    import * as z from "zod";
+
+    const State = new StateSchema({
+      query: z.string(),
+      answer: z.string(),
+    });
+
+    const node: GraphNode<typeof State> = async (state, config) => {
+      config.writer({ custom_key: "Generating custom data inside node" });
+      return { answer: "some data" };
+    };
+
+    const graph = new StateGraph(State)
+      .addNode("node", node)
+      .addEdge(START, "node")
+      .compile();
+
+    for await (const chunk of await graph.stream(
+      { query: "example" },
+      { streamMode: "custom" }
+    )) {
+      console.log(chunk);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Debug mode
+
+Use `debug` to receive as much information as possible throughout execution—useful during development when you want full visibility.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    for chunk in graph.stream(
+        {"topic": "ice cream"},
+        stream_mode="debug",
+        version="v2",
+    ):
+        if chunk["type"] == "debug":
+            print(chunk["data"])
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    for await (const chunk of await graph.stream(
+      { topic: "ice cream" },
+      { streamMode: "debug" }
+    )) {
+      console.log(chunk);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+`debug` mode combines `checkpoints` and `tasks` events with additional metadata. Use `checkpoints` or `tasks` directly if you only need a subset of that information.
+</Note>
+
+## Combine multiple modes
+
+Pass a list as `stream_mode` to receive multiple event types at once.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    for chunk in graph.stream(inputs, stream_mode=["updates", "custom"], version="v2"):
+        if chunk["type"] == "updates":
+            for node_name, state in chunk["data"].items():
+                print(f"Node `{node_name}` updated: {state}")
+        elif chunk["type"] == "custom":
+            print(f"Custom event: {chunk['data']}")
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    for await (const [mode, chunk] of await graph.stream(inputs, {
+      streamMode: ["updates", "custom"],
+    })) {
+      console.log(mode, chunk);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## `.stream()` vs `.astream()`
+
+In Python, `stream()` is the synchronous variant and `astream()` is the asynchronous variant. Use `astream()` in async applications to avoid blocking the event loop while the graph is executing.
+
+```python
+# Synchronous
+for chunk in graph.stream(inputs, stream_mode="updates", version="v2"):
+    print(chunk)
+
+# Asynchronous
+async for chunk in graph.astream(inputs, stream_mode="updates", version="v2"):
+    print(chunk)
+```
+
+<Warning>
+When using Python < 3.11 with async code and the `messages` stream mode, you must explicitly pass `RunnableConfig` to `ainvoke()` to enable proper streaming. Upgrade to Python 3.11+ to avoid this requirement.
+</Warning>

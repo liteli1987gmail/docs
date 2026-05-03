@@ -1,0 +1,300 @@
+---
+title: "Popular LLM providers for LangChain"
+sidebarTitle: "Providers"
+description: "Install commands, package names, and basic usage examples for OpenAI, Anthropic, Google, AWS Bedrock, Ollama, and Hugging Face with LangChain."
+---
+
+LangChain's provider ecosystem covers all major LLM platforms. Each provider ships a first-party package that implements the standard LangChain chat model interface, so you can swap providers with minimal code changes. The providers below are the most widely used.
+
+<Accordion title="OpenAI">
+  **Package:** `langchain-openai`
+
+  <CodeGroup>
+    ```bash pip
+    pip install langchain-openai
+    ```
+
+    ```bash uv
+    uv add langchain-openai
+    ```
+  </CodeGroup>
+
+  Set your API key:
+
+  ```bash
+  export OPENAI_API_KEY="your-api-key"
+  ```
+
+  Basic usage:
+
+  ```python
+  from langchain_openai import ChatOpenAI
+
+  model = ChatOpenAI(model="gpt-4o-mini")
+  response = model.invoke("Tell me a joke about programming.")
+  print(response.content)
+  ```
+
+  For embeddings:
+
+  ```python
+  from langchain_openai import OpenAIEmbeddings
+
+  embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+  vector = embeddings.embed_query("LangChain makes AI easy")
+  ```
+
+  Azure OpenAI is available via `AzureChatOpenAI` and `AzureOpenAIEmbeddings` in the same package.
+
+  
+</Accordion>
+
+<Accordion title="Anthropic (Claude)">
+  **Package:** `langchain-anthropic`
+
+  <CodeGroup>
+    ```bash pip
+    pip install langchain-anthropic
+    ```
+
+    ```bash uv
+    uv add langchain-anthropic
+    ```
+  </CodeGroup>
+
+  Set your API key:
+
+  ```bash
+  export ANTHROPIC_API_KEY="your-api-key"
+  ```
+
+  Basic usage:
+
+  ```python
+  from langchain_anthropic import ChatAnthropic
+
+  model = ChatAnthropic(model="claude-sonnet-4-6")
+  response = model.invoke("Explain LangGraph in one sentence.")
+  print(response.content)
+  ```
+
+  Anthropic also provides Anthropic-specific middleware for Claude models:
+
+  ```python
+  from langchain_anthropic import ChatAnthropic
+
+  # Extended thinking is available on supported models
+  model = ChatAnthropic(model="claude-sonnet-4-6")
+  ```
+
+  
+</Accordion>
+
+<Accordion title="Google (Gemini)">
+  **Package:** `langchain-google-genai` (Gemini Developer API and Vertex AI)
+
+  <CodeGroup>
+    ```bash pip
+    pip install langchain-google-genai
+    ```
+
+    ```bash uv
+    uv add langchain-google-genai
+    ```
+  </CodeGroup>
+
+  Set your API key:
+
+  ```bash
+  export GOOGLE_API_KEY="your-api-key"
+  ```
+
+  Basic usage with the Gemini Developer API:
+
+  ```python
+  from langchain_google_genai import ChatGoogleGenerativeAI
+
+  model = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
+  response = model.invoke("What is the capital of France?")
+  print(response.content)
+  ```
+
+  For embeddings:
+
+  ```python
+  from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+  embeddings = GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")
+  ```
+
+  To use Vertex AI instead of the Gemini Developer API, set `GOOGLE_CLOUD_PROJECT` and use Application Default Credentials—the same `ChatGoogleGenerativeAI` class detects the backend automatically.
+
+  
+</Accordion>
+
+<Accordion title="AWS Bedrock">
+  **Package:** `langchain-aws`
+
+  <CodeGroup>
+    ```bash pip
+    pip install langchain-aws
+    ```
+
+    ```bash uv
+    uv add langchain-aws
+    ```
+  </CodeGroup>
+
+  Configure AWS credentials (via environment variables, `~/.aws/credentials`, or IAM role):
+
+  ```bash
+  export AWS_ACCESS_KEY_ID="your-access-key"
+  export AWS_SECRET_ACCESS_KEY="your-secret-key"
+  export AWS_DEFAULT_REGION="us-east-1"
+  ```
+
+  Basic usage with the Bedrock Converse API (recommended):
+
+  ```python
+  from langchain_aws import ChatBedrockConverse
+
+  model = ChatBedrockConverse(
+      model="anthropic.claude-3-5-sonnet-20241022-v2:0",
+      region_name="us-east-1",
+  )
+  response = model.invoke("Summarize the benefits of serverless computing.")
+  print(response.content)
+  ```
+
+  <Note>
+  Use `ChatBedrockConverse` for most use cases. The older `ChatBedrock` class is available for custom model support not yet in the Converse API.
+  </Note>
+
+  For embeddings:
+
+  ```python
+  from langchain_aws import BedrockEmbeddings
+
+  embeddings = BedrockEmbeddings(model_id="amazon.titan-embed-text-v2:0")
+  ```
+
+  
+</Accordion>
+
+<Accordion title="Ollama">
+  **Package:** `langchain-ollama`
+
+  <CodeGroup>
+    ```bash pip
+    pip install langchain-ollama
+    ```
+
+    ```bash uv
+    uv add langchain-ollama
+    ```
+  </CodeGroup>
+
+  [Install and start Ollama](https://ollama.com/) on your machine, then pull a model:
+
+  ```bash
+  ollama pull llama3.2
+  ```
+
+  Basic usage:
+
+  ```python
+  from langchain_ollama import ChatOllama
+
+  model = ChatOllama(model="llama3.2")
+  response = model.invoke("What is machine learning?")
+  print(response.content)
+  ```
+
+  For embeddings:
+
+  ```python
+  from langchain_ollama import OllamaEmbeddings
+
+  embeddings = OllamaEmbeddings(model="nomic-embed-text")
+  ```
+
+  No API key is required for local Ollama instances. For a complete list of supported models, see the [Ollama model library](https://ollama.ai/library).
+
+  
+</Accordion>
+
+<Accordion title="Hugging Face">
+  **Package:** `langchain-huggingface`
+
+  <CodeGroup>
+    ```bash pip
+    pip install langchain-huggingface
+    ```
+
+    ```bash uv
+    uv add langchain-huggingface
+    ```
+  </CodeGroup>
+
+  Set your API key for hosted inference:
+
+  ```bash
+  export HUGGINGFACEHUB_API_TOKEN="your-token"
+  ```
+
+  Chat via a serverless Inference Provider endpoint:
+
+  ```python
+  from langchain_huggingface import ChatHuggingFace, HuggingFaceEndpoint
+
+  llm = HuggingFaceEndpoint(
+      repo_id="mistralai/Mistral-7B-Instruct-v0.2",
+      task="text-generation",
+  )
+  model = ChatHuggingFace(llm=llm)
+  response = model.invoke("What is RAG?")
+  print(response.content)
+  ```
+
+  Run models locally using the `transformers` pipeline:
+
+  ```python
+  from langchain_huggingface import HuggingFacePipeline
+
+  model = HuggingFacePipeline.from_model_id(
+      model_id="microsoft/phi-2",
+      task="text-generation",
+      pipeline_kwargs={"max_new_tokens": 100},
+  )
+  response = model.invoke("Explain attention mechanisms.")
+  print(response)
+  ```
+
+  For embeddings (local):
+
+  ```python
+  from langchain_huggingface import HuggingFaceEmbeddings
+
+  embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+  ```
+
+  
+</Accordion>
+
+## Use any provider with `init_chat_model`
+
+The `init_chat_model` function accepts any `provider:model` string and returns an initialized chat model. This is the simplest way to switch providers without changing downstream code:
+
+```python
+from langchain.chat_models import init_chat_model
+
+# Switch providers by changing this one string
+model = init_chat_model("openai:gpt-4o-mini")
+model = init_chat_model("anthropic:claude-sonnet-4-6")
+model = init_chat_model("google_genai:gemini-2.0-flash")
+model = init_chat_model("ollama:llama3.2")
+```
+
+<Tip>
+For a full list of all 400+ provider pages, see [providers overview](/oss/integrations/overview). Community integrations that do not have a dedicated package are available in `langchain-community`.
+</Tip>

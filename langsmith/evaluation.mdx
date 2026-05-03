@@ -1,0 +1,288 @@
+---
+title: "Evaluate AI agent quality with LangSmith"
+sidebarTitle: "Evaluation"
+description: "Score AI application outputs against a dataset, compare experiments across versions, and catch regressions before they reach production with LangSmith."
+---
+
+Evaluation gives you a systematic way to measure how well your AI application performs. You run your app against a dataset of test cases, score each output with evaluators, and review the results as an experiment. This workflow applies to every stage of development—from comparing prompts during prototyping to monitoring production traffic in real time.
+
+LangSmith supports two types of evaluation:
+
+<CardGroup cols={2}>
+  <Card title="Offline evaluation" icon="flask">
+    Run evaluations on curated datasets during development to compare versions, benchmark performance, and catch regressions before deployment.
+  </Card>
+  <Card title="Online evaluation" icon="radar">
+    Evaluate real user interactions in real time to detect quality issues and measure performance on live production traffic.
+  </Card>
+</CardGroup>
+
+## How evaluation works
+
+Running an evaluation requires three components:
+
+- **Dataset**: A collection of test inputs, and optionally reference outputs that represent the expected correct answers.
+- **Target function**: The part of your application you want to test—a single LLM call, one module, or your entire workflow.
+- **Evaluators**: Functions that score your target function's outputs.
+
+When you call `evaluate()`, LangSmith pulls each example's inputs from the dataset, passes them to your target function, collects the outputs, runs each evaluator, and records everything as an experiment you can review in the UI.
+
+## Quickstart: run your first evaluation
+
+<Steps>
+  <Step title="Create a dataset">
+    Create a dataset with input/output example pairs. You can do this from the UI or with the SDK:
+
+    <CodeGroup>
+    ```python Python
+    from langsmith import Client
+
+    client = Client()
+
+    dataset = client.create_dataset(
+        dataset_name="Sample dataset",
+        description="A sample dataset in LangSmith."
+    )
+
+    examples = [
+        {
+            "inputs": {"question": "Which country is Mount Kilimanjaro located in?"},
+            "outputs": {"answer": "Mount Kilimanjaro is located in Tanzania."},
+        },
+        {
+            "inputs": {"question": "What is Earth's lowest point?"},
+            "outputs": {"answer": "Earth's lowest point is The Dead Sea."},
+        },
+    ]
+
+    client.create_examples(dataset_id=dataset.id, examples=examples)
+    ```
+
+    ```typescript TypeScript
+    import { Client } from "langsmith";
+
+    const client = new Client();
+
+    const dataset = await client.createDataset("Sample dataset", {
+      description: "A sample dataset in LangSmith.",
+    });
+
+    const inputs = [
+      { question: "Which country is Mount Kilimanjaro located in?" },
+      { question: "What is Earth's lowest point?" },
+    ];
+    const outputs = [
+      { answer: "Mount Kilimanjaro is located in Tanzania." },
+      { answer: "Earth's lowest point is The Dead Sea." },
+    ];
+
+    await client.createExamples({ datasetId: dataset.id, inputs, outputs });
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Define a target function and evaluator">
+    Write the function you want to test, then define an evaluator to score its outputs. The example below uses an LLM-as-judge evaluator from the open-source `openevals` package:
+
+    <CodeGroup>
+    ```python Python
+    from langsmith import wrappers
+    from openai import OpenAI
+    from openevals.llm import create_llm_as_judge
+    from openevals.prompts import CORRECTNESS_PROMPT
+
+    openai_client = wrappers.wrap_openai(OpenAI())
+
+    def target(inputs: dict) -> dict:
+        response = openai_client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Answer the following question accurately"},
+                {"role": "user", "content": inputs["question"]},
+            ],
+        )
+        return {"answer": response.choices[0].message.content.strip()}
+
+    def correctness_evaluator(inputs: dict, outputs: dict, reference_outputs: dict):
+        evaluator = create_llm_as_judge(
+            prompt=CORRECTNESS_PROMPT,
+            model="openai:o3-mini",
+            feedback_key="correctness",
+        )
+        return evaluator(
+            inputs=inputs,
+            outputs=outputs,
+            reference_outputs=reference_outputs,
+        )
+    ```
+
+    ```typescript TypeScript
+    import { wrapOpenAI } from "langsmith/wrappers/openai";
+    import OpenAI from "openai";
+    import { createLLMAsJudge, CORRECTNESS_PROMPT } from "openevals";
+
+    const openaiClient = wrapOpenAI(new OpenAI());
+
+    async function target(inputs: Record<string, any>) {
+      const resp = await openaiClient.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: "Answer the following question accurately" },
+          { role: "user", content: String(inputs.question ?? "") },
+        ],
+      });
+      return { answer: resp.choices[0].message.content?.trim() ?? "" };
+    }
+
+    const judge = createLLMAsJudge({
+      prompt: CORRECTNESS_PROMPT,
+      model: "openai:o3-mini",
+      feedbackKey: "correctness",
+    });
+
+    async function correctnessEvaluator(run: {
+      inputs: Record<string, any>;
+      outputs: Record<string, any>;
+      referenceOutputs?: Record<string, any>;
+    }) {
+      return judge({
+        inputs: run.inputs,
+        outputs: run.outputs,
+        reference_outputs: run.referenceOutputs,
+      });
+    }
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Run the evaluation">
+    Call `evaluate()` to run your target function on every dataset example and score the results:
+
+    <CodeGroup>
+    ```python Python
+    from langsmith import Client
+
+    client = Client()
+
+    experiment_results = client.evaluate(
+        target,
+        data="Sample dataset",
+        evaluators=[correctness_evaluator],
+        experiment_prefix="first-eval-in-langsmith",
+        max_concurrency=2,
+    )
+    print(experiment_results)
+    ```
+
+    ```typescript TypeScript
+    import { evaluate } from "langsmith/evaluation";
+
+    const results = await evaluate(target, {
+      data: "Sample dataset",
+      evaluators: [correctnessEvaluator],
+      experimentPrefix: "first-eval-in-langsmith",
+      maxConcurrency: 2,
+    });
+
+    console.log(results);
+    ```
+    </CodeGroup>
+
+    The output includes a link to the experiment results in the LangSmith UI:
+
+    ```
+    View the evaluation results for experiment: 'first-eval-in-langsmith-00000000' at:
+    https://smith.langchain.com/o/.../datasets/.../compare?selectedSessions=...
+    ```
+  </Step>
+
+  <Step title="Review results">
+    Follow the link to the **Datasets & Experiments** page in the LangSmith UI. You'll see a table showing each example's inputs, reference outputs, your app's outputs, and the evaluator scores. Select any row to open a detailed trace view with intermediate steps.
+
+    <Tip>
+      Run the same evaluation again after changing your prompt or model, then use the comparison view to see which version performed better side by side.
+    </Tip>
+  </Step>
+</Steps>
+
+## Evaluator types
+
+LangSmith supports three main approaches to scoring your application's outputs.
+
+<AccordionGroup>
+  <Accordion title="LLM-as-judge">
+    An LLM grades your application's output using a prompt that encodes your quality criteria. LLM-as-judge evaluators work well for subjective dimensions—helpfulness, tone, coherence—that are difficult to check with code.
+
+    They can be **reference-free** (assessing quality on its own) or **reference-based** (comparing against an expected answer). The open-source [`openevals`](https://github.com/langchain-ai/openevals) package ships with prebuilt prompts for correctness, relevance, and more.
+
+    ```python
+    from openevals.llm import create_llm_as_judge
+    from openevals.prompts import CORRECTNESS_PROMPT
+
+    evaluator = create_llm_as_judge(
+        prompt=CORRECTNESS_PROMPT,
+        model="openai:o3-mini",
+        feedback_key="correctness",
+    )
+    ```
+  </Accordion>
+
+  <Accordion title="Code evaluators">
+    Deterministic, rule-based functions that check properties of your output without calling an LLM. Use code evaluators for structure checks, exact match classification, output length limits, JSON schema validation, and similar objective criteria.
+
+    ```python
+    def is_not_empty(outputs: dict, **kwargs) -> dict:
+        return {
+            "key": "not_empty",
+            "score": int(bool(outputs.get("answer", "").strip())),
+        }
+    ```
+  </Accordion>
+
+  <Accordion title="Human feedback">
+    Human review through [annotation queues](/langsmith/annotation) lets your team score runs directly in the LangSmith UI. Configure rubrics with custom criteria, assign reviewers, and export annotated runs to datasets for future evaluations. Human feedback is especially valuable for subjective tasks and for building ground-truth datasets.
+  </Accordion>
+</AccordionGroup>
+
+## Offline vs. online evaluation
+
+<Tabs>
+  <Tab title="Offline evaluation">
+    Offline evaluations run on curated datasets during development. They give you access to reference outputs so you can check correctness, run regression tests, and benchmark multiple versions of your application side by side.
+
+    | Step | Where |
+    |------|-------|
+    | Create dataset | Datasets & Experiments tab or SDK |
+    | Run evaluation | SDK (`client.evaluate()`), Playground, or Rules |
+    | Review results | Experiments view with comparison support |
+  </Tab>
+  <Tab title="Online evaluation">
+    Online evaluations run automatically on production traces as they arrive. Because there are no reference outputs, evaluators focus on safety checks, format validation, and reference-free quality heuristics.
+
+    Configure online evaluators from the **Observability** tab in the LangSmith UI. You can apply sampling rates to control costs and set up alerts when scores drop below a threshold.
+
+    | Step | Where |
+    |------|-------|
+    | Deploy application | Your infrastructure |
+    | Configure evaluators | Observability tab → Rules |
+    | Monitor results | Tracing project dashboards |
+  </Tab>
+</Tabs>
+
+<Note>
+  For the full comparison between offline and online evaluation, see the [Evaluation](/langsmith/evaluation) page.
+</Note>
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Manage datasets" icon="database" href="/langsmith/datasets">
+    Create and manage datasets for evaluation through the UI or SDK.
+  </Card>
+  <Card title="Annotation queues" icon="users" href="/langsmith/annotation">
+    Collect structured human feedback with annotation queues.
+  </Card>
+  <Card title="Playground" icon="test-pipe" href="/langsmith/playground">
+    Run evaluations interactively against model providers from the Playground.
+  </Card>
+</CardGroup>

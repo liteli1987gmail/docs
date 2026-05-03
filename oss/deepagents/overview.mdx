@@ -1,0 +1,165 @@
+---
+title: "Deep Agents: build capable agents fast"
+sidebarTitle: "Overview"
+description: "Deep Agents is a batteries-included agent framework built on LangChain and LangGraph, with context management, subagent spawning, and memory built in."
+---
+
+Deep Agents is the easiest way to build agents and applications powered by LLMs—with built-in capabilities for task planning, context management via a virtual filesystem, subagent spawning, and long-term memory. You can use it for any task, including complex, multi-step workflows that exceed a single context window.
+
+The `deepagents` package is a standalone library built on top of [LangChain](/oss/langchain/overview)'s core building blocks for agents. It uses the [LangGraph](/oss/langgraph/overview) runtime for durable execution, streaming, human-in-the-loop, and other production features.
+
+## Create your first deep agent
+
+<Tabs>
+  <Tab title="Anthropic">
+    ```python
+    # pip install -qU deepagents langchain-anthropic
+    from deepagents import create_deep_agent
+
+    def get_weather(city: str) -> str:
+        """Get weather for a given city."""
+        return f"It's always sunny in {city}!"
+
+    agent = create_deep_agent(
+        model="anthropic:claude-sonnet-4-6",
+        tools=[get_weather],
+        system_prompt="You are a helpful assistant",
+    )
+
+    agent.invoke(
+        {"messages": [{"role": "user", "content": "what is the weather in sf"}]}
+    )
+    ```
+  </Tab>
+  <Tab title="Google">
+    ```python
+    # pip install -qU deepagents langchain-google-genai
+    from deepagents import create_deep_agent
+
+    def get_weather(city: str) -> str:
+        """Get weather for a given city."""
+        return f"It's always sunny in {city}!"
+
+    agent = create_deep_agent(
+        model="google_genai:gemini-3.1-pro-preview",
+        tools=[get_weather],
+        system_prompt="You are a helpful assistant",
+    )
+
+    agent.invoke(
+        {"messages": [{"role": "user", "content": "what is the weather in sf"}]}
+    )
+    ```
+  </Tab>
+  <Tab title="OpenAI">
+    ```python
+    # pip install -qU deepagents langchain-openai
+    from deepagents import create_deep_agent
+
+    def get_weather(city: str) -> str:
+        """Get weather for a given city."""
+        return f"It's always sunny in {city}!"
+
+    agent = create_deep_agent(
+        model="openai:gpt-5.4",
+        tools=[get_weather],
+        system_prompt="You are a helpful assistant",
+    )
+
+    agent.invoke(
+        {"messages": [{"role": "user", "content": "what is the weather in sf"}]}
+    )
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    // npm install deepagents langchain @langchain/core
+    import * as z from "zod";
+    import { createDeepAgent } from "deepagents";
+    import { tool } from "langchain";
+
+    const getWeather = tool(
+      ({ city }) => `It's always sunny in ${city}!`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({ city: z.string() }),
+      },
+    );
+
+    const agent = createDeepAgent({
+      tools: [getWeather],
+      systemPrompt: "You are a helpful assistant",
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
+      })
+    );
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+Use [LangSmith](/langsmith/overview) to trace requests, debug agent behavior, and evaluate outputs. Set `LANGSMITH_TRACING=true` and your API key to get started.
+</Tip>
+
+## When to use Deep Agents
+
+Use the **Deep Agents SDK** when you want to build agents that can:
+
+- Handle complex, multi-step tasks that require planning and decomposition
+- Manage large amounts of context through file system tools and automatic summarization
+- Swap filesystem backends (in-memory, local disk, durable stores, sandboxes, or custom)
+- Execute shell commands via the `execute` tool when using a sandbox backend
+- Delegate work to specialized subagents for context isolation
+- Persist memory across conversations and threads
+- Control filesystem access with declarative permission rules
+- Require human approval for sensitive operations
+- Use any model provider (frontier or open models)
+
+For simpler agents, consider using LangChain's [`create_agent`](/oss/langchain/agents) or building a custom [LangGraph](/oss/langgraph/overview) workflow directly.
+
+## Core capabilities
+
+<CardGroup cols={2}>
+  <Card title="Context engineering" icon="scissors">
+    File system tools (`ls`, `read_file`, `write_file`, `edit_file`) let agents offload large context to storage, preventing context window overflow. Auto-summarization compacts older messages when the context window grows long.
+  </Card>
+  <Card title="Subagent spawning" icon="users-group">
+    A built-in `task` tool enables agents to create ephemeral subagents for isolated multi-step tasks. Subagents keep the main agent's context clean and can run concurrently.
+  </Card>
+  <Card title="Long-term memory" icon="database">
+    Persist memory across conversations using LangGraph's Memory Store. Agents read and write memory as files; you control where those files live via pluggable backends.
+  </Card>
+  <Card title="Human-in-the-loop" icon="user-check">
+    Configure human approval for sensitive tool operations using LangGraph's interrupt capabilities. Control which tools require confirmation before execution.
+  </Card>
+  <Card title="Sandboxes" icon="cube">
+    Use sandbox backends (Modal, Daytona, Deno) to run shell commands in isolated environments for code execution, builds, and system tasks.
+  </Card>
+  <Card title="Planning" icon="timeline">
+    A built-in `write_todos` tool lets agents break down complex tasks into discrete steps, track progress, and adapt plans as new information emerges.
+  </Card>
+</CardGroup>
+
+## Compare frameworks
+
+| Scenario | Recommendation |
+|---|---|
+| Prebuilt tool-calling loop with minimal setup | [LangChain agents](/oss/langchain/agents) |
+| Custom flow control, state, or execution order | [LangGraph](/oss/langgraph/overview) |
+| Long-running agents with context management and subagents | Deep Agents |
+| Complex multi-step tasks with planning and memory | Deep Agents |
+
+## Explore further
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/oss/deepagents/quickstart">
+    Build your first deep agent in minutes.
+  </Card>
+  <Card title="Capabilities" icon="puzzle" href="/oss/deepagents/capabilities">
+    Explore built-in capabilities in depth.
+  </Card>
+</CardGroup>

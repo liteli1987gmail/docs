@@ -1,0 +1,266 @@
+---
+title: "Trace your AI agent with LangSmith"
+sidebarTitle: "Tracing"
+description: "Instrument your AI application to capture every LLM call, tool invocation, and retrieval step as a structured trace you can inspect and filter in LangSmith."
+---
+
+Tracing gives you a complete picture of what your application did during a single request: which functions ran, in what order, with what inputs and outputs, how long each step took, and how many tokens were consumed. Without tracing, debugging a multi-step agent means adding print statements and guessing. With tracing, you click a row in the UI and see the entire execution tree.
+
+## Prerequisites
+
+Set the following environment variables before running your application:
+
+```bash
+export LANGSMITH_TRACING=true
+export LANGSMITH_API_KEY="<your-api-key>"
+```
+
+By default, LangSmith logs traces to a project named `default`. To use a different project, set `LANGSMITH_PROJECT`:
+
+```bash
+export LANGSMITH_PROJECT="my-agent"
+```
+
+## Trace with `@traceable`
+
+The `@traceable` decorator (Python) and `traceable` wrapper (TypeScript) are the recommended way to instrument your code. Apply them to any function you want to appear as a span in LangSmith. Nested calls between traced functions are automatically linked as parent and child runs.
+
+<CodeGroup>
+```python Python
+from langsmith import traceable
+from openai import Client
+
+openai = Client()
+
+@traceable
+def format_prompt(subject):
+    return [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": f"What's a good name for a store that sells {subject}?"},
+    ]
+
+@traceable(run_type="llm")
+def invoke_llm(messages):
+    return openai.chat.completions.create(
+        messages=messages, model="gpt-5.4-mini", temperature=0
+    )
+
+@traceable
+def parse_output(response):
+    return response.choices[0].message.content
+
+@traceable
+def run_pipeline():
+    messages = format_prompt("colorful socks")
+    response = invoke_llm(messages)
+    return parse_output(response)
+
+run_pipeline()
+```
+
+```typescript TypeScript
+import { traceable } from "langsmith/traceable";
+import OpenAI from "openai";
+
+const openai = new OpenAI();
+
+const formatPrompt = traceable((subject: string) => {
+    return [
+        { role: "system" as const, content: "You are a helpful assistant." },
+        { role: "user" as const, content: `What's a good name for a store that sells ${subject}?` },
+    ];
+}, { name: "formatPrompt" });
+
+const invokeLLM = traceable(
+    async ({ messages }: { messages: { role: string; content: string }[] }) => {
+        return openai.chat.completions.create({
+            model: "gpt-5.4-mini",
+            messages,
+            temperature: 0,
+        });
+    },
+    { run_type: "llm", name: "invokeLLM" }
+);
+
+const parseOutput = traceable(
+    (response: any) => response.choices[0].message.content,
+    { name: "parseOutput" }
+);
+
+const runPipeline = traceable(async () => {
+    const messages = await formatPrompt("colorful socks");
+    const response = await invokeLLM({ messages });
+    return parseOutput(response);
+}, { name: "runPipeline" });
+
+await runPipeline();
+```
+</CodeGroup>
+
+In the LangSmith UI you'll see a `run_pipeline` trace with `format_prompt`, `invoke_llm`, and `parse_output` as nested child runs, each with its own inputs, outputs, and latency.
+
+## Trace with `wrap_openai`
+
+If you use the OpenAI client directly, wrap it with `wrap_openai` (Python) or `wrapOpenAI` (TypeScript). Every chat completion and embedding call is then logged automatically without decorating each individual call site.
+
+<CodeGroup>
+```python Python
+from openai import OpenAI
+from langsmith.wrappers import wrap_openai
+from langsmith import traceable
+
+client = wrap_openai(OpenAI())
+
+@traceable
+def assistant(question: str) -> str:
+    response = client.chat.completions.create(
+        model="gpt-5.4-mini",
+        messages=[{"role": "user", "content": question}],
+    )
+    return response.choices[0].message.content
+```
+
+```typescript TypeScript
+import OpenAI from "openai";
+import { wrapOpenAI } from "langsmith/wrappers";
+import { traceable } from "langsmith/traceable";
+
+const client = wrapOpenAI(new OpenAI());
+
+const assistant = traceable(async (question: string) => {
+    const response = await client.chat.completions.create({
+        model: "gpt-5.4-mini",
+        messages: [{ role: "user", content: question }],
+    });
+    return response.choices[0]?.message?.content ?? null;
+});
+```
+</CodeGroup>
+
+## Add metadata, tags, and custom attributes
+
+Metadata and tags let you filter and group traces in the UI. Attach them to any `@traceable` call:
+
+<CodeGroup>
+```python Python
+from langsmith import traceable
+
+@traceable(
+    metadata={"version": "2.1", "environment": "production"},
+    tags=["customer-facing", "rag"],
+)
+def answer_question(question: str) -> str:
+    # your logic here
+    return "..."
+```
+
+```typescript TypeScript
+import { traceable } from "langsmith/traceable";
+
+const answerQuestion = traceable(
+    async (question: string) => {
+        // your logic here
+        return "...";
+    },
+    {
+        metadata: { version: "2.1", environment: "production" },
+        tags: ["customer-facing", "rag"],
+    }
+);
+```
+</CodeGroup>
+
+<Note>
+  Tags and metadata are not propagated from parent runs to child runs. Attach them explicitly on every run where you want them to appear in filters.
+</Note>
+
+## Trace with the `trace` context manager (Python only)
+
+When you can't use a decorator—for example, when instrumenting a code block inside an existing function—use the `trace` context manager:
+
+```python
+import openai
+import langsmith as ls
+from langsmith.wrappers import wrap_openai
+
+client = wrap_openai(openai.Client())
+
+@ls.traceable(run_type="tool", name="Retrieve Context")
+def my_tool(question: str) -> str:
+    return "During this morning's meeting, we solved all world conflict."
+
+def chat_pipeline(question: str):
+    context = my_tool(question)
+    messages = [
+        {"role": "system", "content": "Answer only based on the given context."},
+        {"role": "user", "content": f"Question: {question}\nContext: {context}"},
+    ]
+    chat_completion = client.chat.completions.create(
+        model="gpt-5.4-mini", messages=messages
+    )
+    return chat_completion.choices[0].message.content
+
+app_inputs = {"input": "Can you summarize this morning's meetings?"}
+
+with ls.trace("Chat Pipeline", "chain", project_name="my_test", inputs=app_inputs) as rt:
+    output = chat_pipeline("Can you summarize this morning's meetings?")
+    rt.end(outputs={"output": output})
+```
+
+## View traces in the UI
+
+After running your application:
+
+1. Open [smith.langchain.com](https://smith.langchain.com).
+2. Go to **Tracing** and select your project (default: **default**).
+3. Click any row in the trace list to open the detail panel.
+4. The panel shows the full execution tree: each span with its inputs, outputs, latency, and token counts.
+
+You can filter traces by run name, metadata key, input content, output content, tags, error status, or feedback score. Use **+ Add filter** at the top of the tracing project page to build a filter, and **Save as** to reuse it later. For a full guide to filtering, see [Tracing](/langsmith/tracing).
+
+<Tip>
+  Use the [LangSmith](/langsmith/overview) to inspect traces directly from the terminal without opening the browser.
+</Tip>
+
+## Ensure all traces are submitted before process exit
+
+LangSmith sends traces in a background thread to avoid blocking your application. Call `flush` before your process exits to ensure nothing is lost:
+
+<CodeGroup>
+```python Python
+from langsmith import Client
+
+client = Client()
+
+@traceable(client=client)
+async def my_traced_func():
+    pass  # your logic here
+
+try:
+    await my_traced_func()
+finally:
+    await client.flush()
+```
+
+```typescript TypeScript
+import { Client } from "langsmith";
+
+const langsmithClient = new Client({});
+
+const myTracedFunc = traceable(async () => {
+    // your logic here
+}, { client: langsmithClient });
+
+try {
+    await myTracedFunc();
+} finally {
+    await langsmithClient.flush();
+}
+```
+</CodeGroup>
+
+## Related
+
+- [Core concepts](/langsmith/concepts): the LangSmith data model—projects, traces, runs, and threads.
+- [Integrations](/langsmith/integrations): auto-tracing for LangChain, LangGraph, Anthropic, and other frameworks.
+- [Dashboards](/langsmith/dashboards): monitor trace counts, latency, and error rates in production.

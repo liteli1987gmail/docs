@@ -1,0 +1,106 @@
+---
+title: "LangChain integrations: connect any model or tool"
+sidebarTitle: "Overview"
+description: "LangChain has 1000+ integrations for chat models, embeddings, vector stores, tools, and document loaders — all sharing a consistent API across providers."
+---
+
+LangChain offers an extensive ecosystem with over 1,000 integrations across chat models, embedding models, tools, vector stores, document loaders, and more. Every integration implements a standard LangChain interface, so you can swap providers without rewriting your application code.
+
+A **provider** is a company or platform that hosts AI models and exposes them via an API (for example, OpenAI, Anthropic, or Google). Many providers have a dedicated `langchain-<provider>` package that implements one or more of LangChain's standard interfaces. Install the package, pick a model name, and switch providers by changing a single string.
+
+## Integration categories
+
+<CardGroup cols={3}>
+  <Card title="Chat models" icon="message" href="/oss/integrations/providers">
+    Conversational LLMs from OpenAI, Anthropic, Google, Bedrock, Ollama, and more.
+  </Card>
+  <Card title="Embedding models" icon="layers-difference" href="/oss/integrations/providers">
+    Embedding models for semantic search, retrieval, and vector storage.
+  </Card>
+  <Card title="Tools and toolkits" icon="tool" href="/oss/integrations/overview">
+    Search, code execution, APIs, databases, and third-party services.
+  </Card>
+  <Card title="Vector stores" icon="database" href="/oss/integrations/providers">
+    Store and search document embeddings with Pinecone, Chroma, Qdrant, and more.
+  </Card>
+  <Card title="Document loaders" icon="file-import" href="/oss/integrations/providers">
+    Load data from PDFs, web pages, S3, Google Drive, databases, and APIs.
+  </Card>
+  <Card title="Checkpointers" icon="device-floppy" href="/oss/integrations/providers">
+    Persist LangGraph agent state with SQLite, PostgreSQL, MongoDB, and Redis backends.
+  </Card>
+  <Card title="Middleware" icon="arrows-shuffle" href="/oss/integrations/providers">
+    Cross-cutting concerns: caching, rate limiting, logging, and model-specific middleware.
+  </Card>
+  <Card title="Sandboxes" icon="cube" href="/oss/integrations/providers">
+    Isolated code execution environments for Deep Agents.
+  </Card>
+</CardGroup>
+
+## Popular providers
+
+The providers below have first-party `langchain-<provider>` packages that are actively maintained and tested.
+
+<CardGroup cols={2}>
+  <Card title="OpenAI" icon="/images/providers/openai.svg" href="/oss/integrations/providers">
+    `ChatOpenAI`, `OpenAIEmbeddings`, and Azure OpenAI variants.
+  </Card>
+  <Card title="Anthropic (Claude)" icon="/images/providers/anthropic.svg" href="/oss/integrations/providers">
+    `ChatAnthropic` and Anthropic-specific middleware.
+  </Card>
+  <Card title="Google" icon="/images/providers/google.svg" href="/oss/integrations/providers">
+    `ChatGoogleGenerativeAI` for Gemini Developer API and Vertex AI.
+  </Card>
+  <Card title="AWS (Bedrock)" icon="/images/providers/aws.svg" href="/oss/integrations/providers">
+    `ChatBedrock`, `ChatBedrockConverse`, and SageMaker endpoint integrations.
+  </Card>
+  <Card title="Ollama" icon="/images/providers/ollama.svg" href="/oss/integrations/providers">
+    `ChatOllama` and `OllamaEmbeddings` for running open-source models locally.
+  </Card>
+  <Card title="Hugging Face" icon="/images/providers/huggingface.svg" href="/oss/integrations/providers">
+    `ChatHuggingFace`, `HuggingFaceEmbeddings`, and serverless inference endpoints.
+  </Card>
+</CardGroup>
+
+## How provider packages work
+
+Most providers ship a package named `langchain-<provider>` that you install alongside `langchain-core`. The package exposes one or more classes that implement LangChain's standard interfaces:
+
+```python
+# Each provider follows the same pattern:
+# pip install langchain-<provider>
+from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
+from langchain_google_genai import ChatGoogleGenerativeAI
+
+# Swap providers by changing the class—your chain stays the same
+model = ChatOpenAI(model="gpt-5.4-mini")
+model = ChatAnthropic(model="claude-sonnet-4-6")
+model = ChatGoogleGenerativeAI(model="gemini-3.1-pro-preview")
+```
+
+You can also use `init_chat_model` to load any provider from a single function call using the `provider:model` string format:
+
+```python
+from langchain.chat_models import init_chat_model
+
+model = init_chat_model("openai:gpt-5.4-mini")
+model = init_chat_model("anthropic:claude-sonnet-4-6")
+model = init_chat_model("google_genai:gemini-3.1-pro-preview")
+```
+
+<Tip>
+For a conceptual overview of how providers and models work in LangChain—including how to find model names, use new models immediately, and work with model routers—see [Providers](/oss/integrations/providers).
+</Tip>
+
+## Community integrations
+
+Integrations that do not have a dedicated first-party package are available in `langchain-community`. This includes hundreds of vector stores, document loaders, and tool integrations maintained by the LangChain community.
+
+```bash
+pip install langchain-community
+```
+
+<Card title="Popular providers" icon="list" href="/oss/integrations/providers">
+  See install commands, usage examples, and links to full documentation for all major LLM providers.
+</Card>

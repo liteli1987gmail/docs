@@ -1,0 +1,159 @@
+{
+  "projectType": "saas",
+  "projectName": "LangChain",
+  "projectDescription": "LangChain is the platform for agent engineering, providing LangSmith for observability, evaluation, and deployment, alongside open-source frameworks (LangChain, LangGraph, Deep Agents) for building production-ready AI agents.",
+  "theme": "aspen",
+  "primaryColor": "#060814",
+  "lightColor": "#7ccafa",
+  "darkColor": "#3c5c7c",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "LangSmith",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "langsmith/overview",
+              "langsmith/quickstart",
+              "langsmith/concepts"
+            ]
+          },
+          {
+            "group": "Observability",
+            "pages": [
+              "langsmith/tracing",
+              "langsmith/integrations",
+              "langsmith/dashboards"
+            ]
+          },
+          {
+            "group": "Evaluation",
+            "pages": [
+              "langsmith/evaluation",
+              "langsmith/datasets",
+              "langsmith/annotation"
+            ]
+          },
+          {
+            "group": "Prompt Engineering",
+            "pages": [
+              "langsmith/prompts",
+              "langsmith/playground"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "langsmith/deployment",
+              "langsmith/agent-server",
+              "langsmith/studio"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Open Source",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "oss/overview",
+              "oss/langchain-quickstart",
+              "oss/langgraph-quickstart"
+            ]
+          },
+          {
+            "group": "LangChain",
+            "pages": [
+              "oss/langchain/overview",
+              "oss/langchain/agents",
+              "oss/langchain/models",
+              "oss/langchain/tools"
+            ]
+          },
+          {
+            "group": "LangGraph",
+            "pages": [
+              "oss/langgraph/overview",
+              "oss/langgraph/persistence",
+              "oss/langgraph/streaming"
+            ]
+          },
+          {
+            "group": "Deep Agents",
+            "pages": [
+              "oss/deepagents/overview",
+              "oss/deepagents/quickstart",
+              "oss/deepagents/capabilities"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "oss/integrations/overview",
+              "oss/integrations/providers"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Fleet",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "fleet/overview",
+              "fleet/quickstart"
+            ]
+          },
+          {
+            "group": "Build Agents",
+            "pages": [
+              "fleet/tools",
+              "fleet/channels",
+              "fleet/templates"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "fleet/code",
+              "fleet/webhooks",
+              "fleet/mcp-servers"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "LangSmith observability and tracing for AI agents and LLM applications",
+    "Evaluation and testing with datasets, LLM-as-judge, and human feedback",
+    "Prompt engineering with version control, playground, and collaboration",
+    "One-click agent deployment with scalable infrastructure via Agent Server",
+    "LangChain open-source framework with prebuilt agents and 100+ integrations",
+    "LangGraph low-level graph orchestration with persistence and human-in-the-loop",
+    "Deep Agents batteries-included agent with memory, subagents, and sandboxes",
+    "LangSmith Fleet no-code agent builder for non-technical users",
+    "Multi-framework tracing support (OpenAI, Anthropic, LangGraph, CrewAI, AutoGen, etc.)",
+    "Self-hosted, hybrid, and cloud deployment options"
+  ],
+  "publicApiSurface": [
+    "LangSmith Python SDK (langsmith)",
+    "LangSmith JavaScript/TypeScript SDK",
+    "LangChain Python SDK (langchain)",
+    "LangChain JavaScript/TypeScript SDK",
+    "LangGraph Python SDK (langgraph)",
+    "LangGraph JavaScript/TypeScript SDK",
+    "Deep Agents Python/TypeScript packages",
+    "LangSmith REST API",
+    "Agent Server API (OpenAPI)",
+    "LangSmith Control Plane API",
+    "create_agent() - Python/JS function to build agents",
+    "StateGraph - LangGraph graph builder class",
+    "@traceable decorator - Python tracing decorator",
+    "wrapOpenAI() - JavaScript OpenAI tracing wrapper",
+    "Client.run_on_dataset() - evaluation runner"
+  ]
+}

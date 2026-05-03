@@ -1,0 +1,172 @@
+---
+title: "Get started with LangSmith"
+sidebarTitle: "Quickstart"
+description: "Add LangSmith tracing to an LLM application in minutes. Sign up, install the SDK, set two environment variables, and see your first trace."
+---
+
+LangSmith captures a complete record of every step your application executes—LLM calls, tool invocations, and any nested operations—as a structured [trace](/langsmith/concepts). This quickstart walks you through creating an account, installing the SDK, and running a simple AI assistant whose full execution is visible in the LangSmith UI.
+
+## Prerequisites
+
+Before you begin, make sure you have:
+
+- **A LangSmith account**: sign up or log in at [smith.langchain.com](https://smith.langchain.com).
+- **A LangSmith API key**: follow the steps below to create one.
+- **An OpenAI API key**: generated from the [OpenAI dashboard](https://platform.openai.com/account/api-keys).
+
+This example uses OpenAI as the LLM provider. You can adapt it for other providers.
+
+<Steps>
+  <Step title="Create an account">
+    Go to [smith.langchain.com](https://smith.langchain.com) and sign up. LangSmith supports sign-in with Google, GitHub, or email. No credit card is required to get started.
+  </Step>
+
+  <Step title="Create an API key">
+    Navigate to the [Settings page](https://smith.langchain.com/settings) and select **API Keys**, then click **Create API Key**. Copy the key immediately—LangSmith only shows it once.
+
+    LangSmith offers two key types:
+
+    - **Personal Access Tokens (PATs)**: inherit your user permissions. Use these for local scripts and personal tools.
+    - **Service keys**: scoped to a workspace or organization. Use these for applications and production services.
+  </Step>
+
+  <Step title="Install the SDK and set environment variables">
+    Create a project directory, install dependencies, and export your environment variables:
+
+    <CodeGroup>
+    ```bash Python
+    mkdir ls-quickstart && cd ls-quickstart
+    python -m venv .venv && source .venv/bin/activate
+    pip install -U langsmith openai
+    ```
+    ```bash TypeScript
+    mkdir ls-quickstart-ts && cd ls-quickstart-ts
+    npm init -y
+    npm install langsmith openai
+    npm install -D typescript tsx
+    ```
+    </CodeGroup>
+
+    Then export your keys in your shell:
+
+    ```bash
+    export LANGSMITH_TRACING=true
+    export LANGSMITH_API_KEY="<your-langsmith-api-key>"
+    export OPENAI_API_KEY="<your-openai-api-key>"
+    ```
+
+    <Note>
+      `LANGSMITH_TRACING=true` enables the `@traceable` decorator and `traceable` wrapper. Set it to `false` at any time to disable tracing without changing your code.
+    </Note>
+
+    If you're on a non-default LangSmith deployment, also set `LANGSMITH_ENDPOINT`:
+
+    - EU instance: `LANGSMITH_ENDPOINT=https://eu.api.smith.langchain.com`
+    - AWS-hosted US instance: `LANGSMITH_ENDPOINT=https://aws.api.smith.langchain.com`
+  </Step>
+
+  <Step title="Build the app">
+    This example uses two LangSmith tools:
+
+    - **`wrap_openai`** / **`wrapOpenAI`**: wraps the OpenAI client so every LLM call is automatically logged as a nested span.
+    - **`@traceable`** / **`traceable`**: wraps a function so its inputs, outputs, and nested spans appear as a single trace.
+
+    Create a file called `app.py` (or `index.ts`):
+
+    <CodeGroup>
+    ```python Python
+    from openai import OpenAI
+    from langsmith.wrappers import wrap_openai
+    from langsmith import traceable
+
+    client = wrap_openai(OpenAI())  # log every OpenAI call automatically
+
+    @traceable(run_type="tool")  # trace this as a tool span
+    def get_context(question: str) -> str:
+        # In a real app, this would query a knowledge base or vector store
+        return "LangSmith traces are stored for 14 days on the Developer plan."
+
+    @traceable  # capture the full pipeline as a single trace
+    def assistant(question: str) -> str:
+        context = get_context(question)
+        response = client.chat.completions.create(
+            model="gpt-5.4-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"Answer using the context below.\n\nContext: {context}",
+                },
+                {"role": "user", "content": question},
+            ],
+        )
+        return response.choices[0].message.content
+
+    if __name__ == "__main__":
+        print(assistant("How long are LangSmith traces stored?"))
+    ```
+
+    ```typescript TypeScript
+    import OpenAI from "openai";
+    import { wrapOpenAI } from "langsmith/wrappers";
+    import { traceable } from "langsmith/traceable";
+
+    const client = wrapOpenAI(new OpenAI()); // log every OpenAI call automatically
+
+    const getContext = traceable(
+        async function getContext(question: string): Promise<string> {
+            // In a real app, this would query a knowledge base or vector store
+            return "LangSmith traces are stored for 14 days on the Developer plan.";
+        },
+        { run_type: "tool" }
+    );
+
+    const assistant = traceable(async function assistant(question: string) {
+        const context = await getContext(question);
+        const response = await client.chat.completions.create({
+            model: "gpt-5.4-mini",
+            messages: [
+                {
+                    role: "system",
+                    content: `Answer using the context below.\n\nContext: ${context}`,
+                },
+                { role: "user", content: question },
+            ],
+        });
+        return response.choices[0]?.message?.content ?? null;
+    });
+
+    (async () => {
+        console.log(await assistant("How long are LangSmith traces stored?"));
+    })();
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="Run the app">
+    <CodeGroup>
+    ```bash Python
+    python app.py
+    ```
+    ```bash TypeScript
+    npx tsx index.ts
+    ```
+    </CodeGroup>
+  </Step>
+
+  <Step title="View your trace">
+    Open the [LangSmith UI](https://smith.langchain.com), go to **Tracing**, and select your **default** project. Click the `assistant` row to open the trace detail panel.
+
+    You'll see the `assistant` function as the root span with two nested child spans: the `get_context` tool call and the OpenAI `ChatCompletion` call. Each span shows the exact inputs, outputs, latency, and token counts.
+
+    <Tip>
+      You can also inspect traces from the terminal using the [LangSmith](/langsmith/overview).
+    </Tip>
+  </Step>
+</Steps>
+
+## Next steps
+
+- [Core concepts](/langsmith/concepts): understand projects, traces, runs, and feedback.
+- [Tracing guide](/langsmith/tracing): add metadata, tags, and custom attributes to your traces.
+- [Integrations](/langsmith/integrations): enable auto-tracing for LangChain, LangGraph, Anthropic, and more.
+- [Dashboards](/langsmith/dashboards): monitor latency, token usage, and error rates in production.

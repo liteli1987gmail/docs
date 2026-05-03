@@ -1,0 +1,367 @@
+---
+title: "Create and manage evaluation datasets"
+sidebarTitle: "Datasets"
+description: "Build datasets of test inputs and reference outputs to run repeatable evaluations, track regressions, and benchmark your AI application across versions."
+---
+
+Datasets are the foundation of evaluation in LangSmith. A dataset is a collection of _examples_, each containing an input dictionary and an optional reference output dictionary. You pass a dataset to `evaluate()` and LangSmith runs your application on every example, scores the outputs, and records the results as an experiment.
+
+You can create datasets directly in the LangSmith UI or programmatically with the SDK. Both approaches are covered below.
+
+## Create a dataset in the UI
+
+<Steps>
+  <Step title="Open the Datasets & Experiments page">
+    Navigate to **Datasets & Experiments** in the left-hand navigation and click **+ New Dataset**.
+  </Step>
+  <Step title="Choose a creation method">
+    Select **Create from scratch** to build a dataset manually, or **Import** to upload a CSV or JSONL file.
+  </Step>
+  <Step title="Add examples">
+    On the dataset's **Examples** tab, click **+ Example**. Define each example in JSON with `inputs` and (optionally) `outputs` fields, then click **Submit**.
+
+    ```json
+    {
+      "inputs": { "question": "Which country is Mount Kilimanjaro located in?" },
+      "outputs": { "answer": "Mount Kilimanjaro is located in Tanzania." }
+    }
+    ```
+  </Step>
+</Steps>
+
+<Tip>
+  If you have existing examples and a schema defined, click **+ Example** and choose **Add AI-Generated Examples** to let an LLM generate synthetic test cases based on your existing examples.
+</Tip>
+
+### Other ways to populate a dataset
+
+| Source | How |
+|--------|-----|
+| Production traces | Select runs in **Tracing Projects**, then click **Add to Dataset** |
+| Annotation queue | After reviewing a run, click **Add to Dataset** in the annotation queue view |
+| Playground | Click **Set up Evaluation** → **+ New** to create a dataset inline |
+| Automation rules | Configure a rule to add matching runs to a dataset automatically |
+
+## Create a dataset with the SDK
+
+<CodeGroup>
+```python Python
+from langsmith import Client
+
+client = Client()
+
+dataset = client.create_dataset(
+    dataset_name="Elementary Animal Questions",
+    description="Questions and answers about animal phylogenetics.",
+)
+```
+
+```typescript TypeScript
+import { Client } from "langsmith";
+
+const client = new Client();
+
+const dataset = await client.createDataset("Elementary Animal Questions", {
+  description: "Questions and answers about animal phylogenetics.",
+});
+```
+</CodeGroup>
+
+### Add examples
+
+Use `create_examples` / `createExamples` to add multiple examples in a single request:
+
+<CodeGroup>
+```python Python
+examples = [
+    {
+        "inputs": {"question": "What is the largest mammal?"},
+        "outputs": {"answer": "The blue whale"},
+        "metadata": {"source": "Wikipedia"},
+    },
+    {
+        "inputs": {"question": "What do mammals and birds have in common?"},
+        "outputs": {"answer": "They are both warm-blooded"},
+        "metadata": {"source": "Wikipedia"},
+    },
+    {
+        "inputs": {"question": "What are reptiles known for?"},
+        "outputs": {"answer": "Having scales"},
+        "metadata": {"source": "Wikipedia"},
+    },
+]
+
+client.create_examples(dataset_id=dataset.id, examples=examples)
+```
+
+```typescript TypeScript
+const inputs = [
+  { question: "What is the largest mammal?" },
+  { question: "What do mammals and birds have in common?" },
+  { question: "What are reptiles known for?" },
+];
+const outputs = [
+  { answer: "The blue whale" },
+  { answer: "They are both warm-blooded" },
+  { answer: "Having scales" },
+];
+const metadata = [
+  { source: "Wikipedia" },
+  { source: "Wikipedia" },
+  { source: "Wikipedia" },
+];
+
+await client.createExamples({
+  inputs,
+  outputs,
+  metadata,
+  datasetId: dataset.id,
+});
+```
+</CodeGroup>
+
+### Create a dataset from production traces
+
+Once your application is deployed and tracing to LangSmith, you can build datasets directly from real runs:
+
+<CodeGroup>
+```python Python
+from langsmith import Client
+
+client = Client()
+
+runs = client.list_runs(
+    project_name="my_project",
+    is_root=True,
+    error=False,
+)
+
+dataset = client.create_dataset("Example Dataset", description="An example dataset")
+
+examples = [{"inputs": run.inputs, "outputs": run.outputs} for run in runs]
+client.create_examples(dataset_id=dataset.id, examples=examples)
+```
+
+```typescript TypeScript
+import { Client, Run } from "langsmith";
+
+const client = new Client();
+
+const runs: Run[] = [];
+for await (const run of client.listRuns({
+  projectName: "my_project",
+  isRoot: 1,
+  error: false,
+})) {
+  runs.push(run);
+}
+
+const dataset = await client.createDataset("Example Dataset", {
+  description: "An example dataset",
+});
+
+const inputs = runs.map(run => run.inputs);
+const outputs = runs.map(run => run.outputs ?? {});
+
+await client.createExamples({ inputs, outputs, datasetId: dataset.id });
+```
+</CodeGroup>
+
+### Upload from a CSV file
+
+<CodeGroup>
+```python Python
+from langsmith import Client
+
+client = Client()
+
+dataset = client.upload_csv(
+    csv_file="path/to/your/csvfile.csv",
+    input_keys=["question"],
+    output_keys=["answer"],
+    name="My CSV Dataset",
+    description="Dataset created from a CSV file",
+    data_type="kv",
+)
+```
+
+```typescript TypeScript
+import { Client } from "langsmith";
+
+const client = new Client();
+
+const dataset = await client.uploadCsv({
+  csvFile: "path/to/your/csvfile.csv",
+  fileName: "My CSV Dataset",
+  inputKeys: ["question"],
+  outputKeys: ["answer"],
+  description: "Dataset created from a CSV file",
+  dataType: "kv",
+});
+```
+</CodeGroup>
+
+## Query datasets and examples
+
+### List datasets
+
+<CodeGroup>
+```python Python
+from langsmith import Client
+
+client = Client()
+
+# All datasets
+datasets = client.list_datasets()
+
+# By exact name
+datasets = client.list_datasets(dataset_name="My Test Dataset 1")
+
+# By partial name (case-insensitive)
+datasets = client.list_datasets(dataset_name_contains="animal")
+
+# By type
+datasets = client.list_datasets(data_type="kv")
+```
+
+```typescript TypeScript
+import { Client } from "langsmith";
+
+const client = new Client();
+
+// All datasets
+const datasets = await client.listDatasets();
+
+// By exact name
+const byName = await client.listDatasets({ datasetName: "My Test Dataset 1" });
+
+// By partial name
+const bySubstring = await client.listDatasets({
+  datasetNameContains: "animal",
+});
+
+// By type
+const byType = await client.listDatasets({ dataType: "kv" });
+```
+</CodeGroup>
+
+### List examples
+
+<CodeGroup>
+```python Python
+# By dataset ID
+examples = client.list_examples(
+    dataset_id="c9ace0d8-a82c-4b6c-13d2-83401d68e9ab"
+)
+
+# By dataset name
+examples = client.list_examples(dataset_name="My Test Dataset")
+
+# By metadata
+examples = client.list_examples(
+    dataset_name="My Test Dataset",
+    metadata={"source": "Wikipedia"}
+)
+
+# Using structured filter query language
+examples = client.list_examples(
+    dataset_name="My Test Dataset",
+    filter='and(not(has(metadata, \'{"source": "manual"}\')), exists(metadata, "tenant_id"))'
+)
+```
+
+```typescript TypeScript
+// By dataset ID
+const examples = await client.listExamples({
+  datasetId: "c9ace0d8-a82c-4b6c-13d2-83401d68e9ab",
+});
+
+// By dataset name
+const byName = await client.listExamples({ datasetName: "My Test Dataset" });
+
+// By metadata
+const byMetadata = await client.listExamples({
+  datasetName: "My Test Dataset",
+  metadata: { source: "Wikipedia" },
+});
+```
+</CodeGroup>
+
+<Note>
+  The structured filter query language for examples is available in Python SDK v0.1.83+ and TypeScript SDK v0.1.35+. It supports only `metadata` fields.
+</Note>
+
+## Manage datasets
+
+### Dataset splits
+
+Splits are named subsets of a dataset that let you segment examples into groups—for example, `train`, `validation`, and `test` sets, or category-based groups like `edge-cases` and `happy-path`.
+
+To create or assign a split in the UI:
+
+1. Select examples on the **Examples** tab.
+2. Click **Add to Split**.
+3. Choose an existing split or create a new one.
+
+### Dataset schemas
+
+Define a JSON schema on your dataset to validate examples as they are added. Go to the dataset page, click **+ New Dataset**, and define your schema on the **Create from scratch** tab. LangSmith offers prebuilt types for common formats like OpenAI messages and tools.
+
+### Update examples
+
+<CodeGroup>
+```python Python
+# Update a single example
+client.update_example(
+    example_id=example.id,
+    inputs={"input": "updated input"},
+    outputs={"output": "updated output"},
+    metadata={"foo": "bar"},
+    split="train",
+)
+
+# Bulk update
+client.update_examples(
+    example_ids=[example.id, example_2.id],
+    inputs=[{"input": "updated 1"}, {"input": "updated 2"}],
+    outputs=[{"output": "updated 1"}, {"output": "updated 2"}],
+)
+```
+
+```typescript TypeScript
+// Update a single example
+await client.updateExample(example.id, {
+  inputs: { input: "updated input" },
+  outputs: { output: "updated output" },
+  metadata: { foo: "bar" },
+  split: "train",
+});
+
+// Bulk update
+await client.updateExamples([
+  {
+    id: example.id,
+    inputs: { input: "updated 1" },
+    outputs: { output: "updated 1" },
+    split: ["training", "foo"],
+  },
+  {
+    id: example2.id,
+    inputs: { input: "updated 2" },
+    outputs: { output: "updated 2" },
+    split: "training",
+  },
+]);
+```
+</CodeGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Run an evaluation" icon="flask" href="/langsmith/evaluation">
+    Use your dataset to run an experiment and score your application's outputs.
+  </Card>
+  <Card title="Annotation queues" icon="users" href="/langsmith/annotation">
+    Use annotation queues to build high-quality datasets from human-reviewed production traces.
+  </Card>
+</CardGroup>

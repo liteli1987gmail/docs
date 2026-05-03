@@ -1,0 +1,316 @@
+---
+title: "Get started with Deep Agents"
+sidebarTitle: "Quickstart"
+description: "Install Deep Agents, configure a model provider, create a research agent with web search, and run your first deep agent in under five minutes."
+---
+
+This guide walks you through creating your first deep agent with planning, file system tools, and subagent capabilities. You will build a research agent that can conduct research and write reports.
+
+<Note>
+Deep Agents require a model that supports [tools](/oss/langchain/tools). See [providers](/oss/integrations/providers) for all providers.
+</Note>
+
+## Prerequisites
+
+Before you begin, make sure you have an API key from a model provider such as Anthropic, Google, or OpenAI.
+
+<Steps>
+
+<Step title="Install dependencies">
+
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+      ```bash pip
+      pip install deepagents tavily-python
+      ```
+
+      ```bash uv
+      uv init
+      uv add deepagents tavily-python
+      uv sync
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="TypeScript">
+    <CodeGroup>
+      ```bash npm
+      npm install deepagents langchain @langchain/core @langchain/tavily
+      ```
+
+      ```bash yarn
+      yarn add deepagents langchain @langchain/core @langchain/tavily
+      ```
+
+      ```bash pnpm
+      pnpm add deepagents langchain @langchain/core @langchain/tavily
+      ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+<Note>
+This guide uses [Tavily](https://tavily.com/) as an example search provider. You can substitute any search API such as DuckDuckGo, SerpAPI, or Brave Search.
+</Note>
+
+</Step>
+
+<Step title="Set up your API keys">
+
+<Tabs>
+  <Tab title="Anthropic">
+    ```bash
+    export ANTHROPIC_API_KEY="your-api-key"
+    export TAVILY_API_KEY="your-tavily-api-key"
+    ```
+  </Tab>
+  <Tab title="Google">
+    ```bash
+    export GOOGLE_API_KEY="your-api-key"
+    export TAVILY_API_KEY="your-tavily-api-key"
+    ```
+  </Tab>
+  <Tab title="OpenAI">
+    ```bash
+    export OPENAI_API_KEY="your-api-key"
+    export TAVILY_API_KEY="your-tavily-api-key"
+    ```
+  </Tab>
+  <Tab title="OpenRouter">
+    ```bash
+    export OPENROUTER_API_KEY="your-api-key"
+    export TAVILY_API_KEY="your-tavily-api-key"
+    ```
+  </Tab>
+  <Tab title="Ollama">
+    ```bash
+    # Local: Ollama must be running on your machine
+    export TAVILY_API_KEY="your-tavily-api-key"
+    ```
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step title="Create a search tool">
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import os
+    from typing import Literal
+    from tavily import TavilyClient
+    from deepagents import create_deep_agent
+
+    tavily_client = TavilyClient(api_key=os.environ["TAVILY_API_KEY"])
+
+    def internet_search(
+        query: str,
+        max_results: int = 5,
+        topic: Literal["general", "news", "finance"] = "general",
+        include_raw_content: bool = False,
+    ):
+        """Run a web search"""
+        return tavily_client.search(
+            query,
+            max_results=max_results,
+            include_raw_content=include_raw_content,
+            topic=topic,
+        )
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { tool } from "langchain";
+    import { TavilySearch } from "@langchain/tavily";
+    import { z } from "zod";
+
+    const internetSearch = tool(
+      async ({
+        query,
+        maxResults = 5,
+        topic = "general",
+        includeRawContent = false,
+      }) => {
+        const tavilySearch = new TavilySearch({
+          maxResults,
+          tavilyApiKey: process.env.TAVILY_API_KEY,
+          includeRawContent,
+          topic,
+        });
+        return await tavilySearch._call({ query });
+      },
+      {
+        name: "internet_search",
+        description: "Run a web search",
+        schema: z.object({
+          query: z.string().describe("The search query"),
+          maxResults: z.number().optional().default(5),
+          topic: z.enum(["general", "news", "finance"]).optional().default("general"),
+          includeRawContent: z.boolean().optional().default(false),
+        }),
+      },
+    );
+    ```
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step title="Create a deep agent">
+
+Pass a `model` string in `provider:model` format. See [providers](/oss/integrations/providers) for all providers.
+
+<Tabs>
+  <Tab title="Anthropic">
+    ```python
+    research_instructions = """You are an expert researcher. Your job is to conduct thorough research and then write a polished report.
+
+    You have access to an internet search tool as your primary means of gathering information.
+
+    ## `internet_search`
+
+    Use this to run an internet search for a given query. You can specify the max number of results to return, the topic, and whether raw content should be included.
+    """
+
+    agent = create_deep_agent(
+        model="anthropic:claude-sonnet-4-6",
+        tools=[internet_search],
+        system_prompt=research_instructions,
+    )
+    ```
+  </Tab>
+  <Tab title="Google">
+    ```python
+    agent = create_deep_agent(
+        model="google_genai:gemini-3.1-pro-preview",
+        tools=[internet_search],
+        system_prompt=research_instructions,
+    )
+    ```
+  </Tab>
+  <Tab title="OpenAI">
+    ```python
+    agent = create_deep_agent(
+        model="openai:gpt-5.4",
+        tools=[internet_search],
+        system_prompt=research_instructions,
+    )
+    ```
+  </Tab>
+  <Tab title="OpenRouter">
+    ```python
+    agent = create_deep_agent(
+        model="openrouter:anthropic/claude-sonnet-4-6",
+        tools=[internet_search],
+        system_prompt=research_instructions,
+    )
+    ```
+  </Tab>
+  <Tab title="Ollama">
+    ```python
+    agent = create_deep_agent(
+        model="ollama:devstral-2",
+        tools=[internet_search],
+        system_prompt=research_instructions,
+    )
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { createDeepAgent } from "deepagents";
+
+    const researchInstructions = `You are an expert researcher. Your job is to conduct thorough research and then write a polished report.
+
+    You have access to an internet search tool as your primary means of gathering information.
+
+    ## \`internet_search\`
+
+    Use this to run an internet search for a given query.
+    `;
+
+    const agent = createDeepAgent({
+      model: "anthropic:claude-sonnet-4-6",
+      tools: [internetSearch],
+      systemPrompt: researchInstructions,
+    });
+    ```
+  </Tab>
+</Tabs>
+
+</Step>
+
+<Step title="Run the agent">
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    result = agent.invoke({"messages": [{"role": "user", "content": "What is langgraph?"}]})
+
+    # Print the agent's response
+    print(result["messages"][-1].content)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    const result = await agent.invoke({
+      messages: [{ role: "user", content: "What is langgraph?" }],
+    });
+
+    // Print the agent's response
+    console.log(result.messages[result.messages.length - 1].content);
+    ```
+  </Tab>
+</Tabs>
+
+</Step>
+
+</Steps>
+
+## How it works
+
+Your deep agent automatically:
+
+1. **Plans its approach** using the built-in `write_todos` tool to break down the research task into discrete steps.
+2. **Conducts research** by calling the `internet_search` tool to gather information.
+3. **Manages context** using file system tools (`write_file`, `read_file`) to offload large search results and prevent context overflow.
+4. **Spawns subagents** as needed to delegate complex subtasks to specialized agents.
+5. **Synthesizes a report** by compiling findings into a coherent response.
+
+## Run with different model providers
+
+You can pass any supported model string in `provider:model` format, or an initialized model instance:
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from langchain.chat_models import init_chat_model
+
+    model = init_chat_model("anthropic:claude-sonnet-4-6")
+    agent = create_deep_agent(
+        model=model,
+        tools=[internet_search],
+        system_prompt=research_instructions,
+    )
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { initChatModel } from "langchain";
+
+    const model = await initChatModel("anthropic:claude-sonnet-4-6");
+    const agent = createDeepAgent({
+      model,
+      tools: [internetSearch],
+      systemPrompt: researchInstructions,
+    });
+    ```
+  </Tab>
+</Tabs>
+
+## Next steps
+
+- **Customize your agent**: Learn about [capabilities](/oss/deepagents/capabilities), including system prompts, tools, and subagents.
+- **Add long-term memory**: Enable [capabilities](/oss/deepagents/capabilities) across conversations.
+- **Deploy to production**: Learn about [LangSmith deployment](/langsmith/deployment) for Deep Agents.
+- **Explore examples**: See agents, patterns, and applications at the [Deep Agents examples](https://github.com/langchain-ai/deepagents/tree/main/examples) repository.

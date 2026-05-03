@@ -1,0 +1,286 @@
+---
+title: "Connect to any LLM with LangChain's model interface"
+sidebarTitle: "Models"
+description: "LangChain's unified chat model interface works with any provider. Invoke, stream, and extract structured output — swap providers with a one-line change."
+---
+
+LangChain standardizes how you interact with language models across every provider. Whether you're using OpenAI, Anthropic, Google, or a locally hosted model, the same `invoke()`, `stream()`, and `with_structured_output()` methods work the same way. This means you can switch providers by changing one line.
+
+Models are the reasoning engine of [agents](/oss/langchain/agents)—they drive decision-making, tool selection, and final responses. You can also use them standalone for tasks like classification, extraction, or text generation.
+
+## Initialize a model
+
+Use `init_chat_model` to create a model from any supported provider.
+
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+      ```python OpenAI
+      from langchain.chat_models import init_chat_model
+
+      # pip install -U langchain "langchain[openai]"
+      # export OPENAI_API_KEY="your-api-key"
+      model = init_chat_model("openai:gpt-5.4")
+      ```
+      ```python Claude (Anthropic)
+      from langchain.chat_models import init_chat_model
+
+      # pip install -U langchain "langchain[anthropic]"
+      # export ANTHROPIC_API_KEY="your-api-key"
+      model = init_chat_model("claude-sonnet-4-6")
+      ```
+      ```python Google Gemini
+      from langchain.chat_models import init_chat_model
+
+      # pip install -U langchain "langchain[google-genai]"
+      # export GOOGLE_API_KEY="your-api-key"
+      model = init_chat_model("google_genai:gemini-2.5-flash-lite")
+      ```
+      ```python Ollama
+      from langchain.chat_models import init_chat_model
+
+      # pip install -U langchain langchain-ollama
+      # Ollama must be running locally: https://ollama.com
+      model = init_chat_model("ollama:devstral-2")
+      ```
+      ```python Azure OpenAI
+      import os
+      from langchain.chat_models import init_chat_model
+
+      # pip install -U langchain "langchain[openai]"
+      model = init_chat_model(
+          "azure_openai:gpt-5.4",
+          azure_deployment=os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"],
+      )
+      ```
+      ```python AWS Bedrock
+      from langchain.chat_models import init_chat_model
+
+      # pip install -U langchain langchain-aws
+      model = init_chat_model(
+          "anthropic.claude-3-5-sonnet-20240620-v1:0",
+          model_provider="bedrock_converse",
+      )
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="TypeScript">
+    <CodeGroup>
+      ```ts OpenAI
+      import { initChatModel } from "langchain";
+
+      // npm install langchain @langchain/openai
+      // export OPENAI_API_KEY="your-api-key"
+      const model = await initChatModel("gpt-5.4");
+      ```
+      ```ts Claude (Anthropic)
+      import { initChatModel } from "langchain";
+
+      // npm install langchain @langchain/anthropic
+      // export ANTHROPIC_API_KEY="your-api-key"
+      const model = await initChatModel("claude-sonnet-4-6");
+      ```
+      ```ts Google Gemini
+      import { initChatModel } from "langchain";
+
+      // npm install langchain @langchain/google-genai
+      // export GOOGLE_API_KEY="your-api-key"
+      const model = await initChatModel("google-genai:gemini-2.5-flash-lite");
+      ```
+      ```ts Ollama
+      import { initChatModel } from "langchain";
+
+      // npm install langchain @langchain/ollama
+      const model = await initChatModel("ollama:devstral-2");
+      ```
+      ```ts Azure OpenAI
+      import { initChatModel } from "langchain";
+
+      // npm install langchain @langchain/openai
+      const model = await initChatModel("azure_openai:gpt-5.4");
+      ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+## Configure model parameters
+
+Pass standard parameters to control model behavior. All provider packages share the same parameter names.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from langchain.chat_models import init_chat_model
+
+    model = init_chat_model(
+        "claude-sonnet-4-6",
+        temperature=0.7,
+        timeout=30,
+        max_tokens=1000,
+        max_retries=6,  # Default; increase for unreliable networks
+    )
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { initChatModel } from "langchain";
+
+    const model = await initChatModel("claude-sonnet-4-6", {
+      temperature: 0.7,
+      timeout: 30,
+      maxTokens: 1000,
+      maxRetries: 6,
+    });
+    ```
+  </Tab>
+</Tabs>
+
+Key parameters:
+
+| Parameter | Description |
+|-----------|-------------|
+| `temperature` | Controls randomness. Higher values produce more creative output. |
+| `max_tokens` / `maxTokens` | Maximum tokens in the response. |
+| `timeout` | Seconds to wait before canceling the request. |
+| `max_retries` / `maxRetries` | Retry attempts on network errors or rate limits (default: 6). |
+
+## Invoke
+
+Call `invoke()` with a string or a list of messages.
+
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+      ```python Single message
+      response = model.invoke("Why do parrots have colorful feathers?")
+      print(response)
+      ```
+      ```python Conversation history
+      conversation = [
+          {"role": "system", "content": "You are a helpful assistant that translates English to French."},
+          {"role": "user", "content": "Translate: I love programming."},
+          {"role": "assistant", "content": "J'adore la programmation."},
+          {"role": "user", "content": "Translate: I love building applications."}
+      ]
+
+      response = model.invoke(conversation)
+      print(response)  # AIMessage("J'adore créer des applications.")
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="TypeScript">
+    <CodeGroup>
+      ```typescript Single message
+      const response = await model.invoke("Why do parrots have colorful feathers?");
+      console.log(response);
+      ```
+      ```typescript Conversation history
+      const conversation = [
+        { role: "system", content: "You are a helpful assistant that translates English to French." },
+        { role: "user", content: "Translate: I love programming." },
+        { role: "assistant", content: "J'adore la programmation." },
+        { role: "user", content: "Translate: I love building applications." },
+      ];
+
+      const response = await model.invoke(conversation);
+      console.log(response);  // AIMessage("J'adore créer des applications.")
+      ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+## Stream
+
+Use `stream()` to process output as it's generated, which improves perceived latency for long responses.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    for chunk in model.stream("Why do parrots have colorful feathers?"):
+        print(chunk.text, end="|", flush=True)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    const stream = await model.stream("Why do parrots have colorful feathers?");
+    for await (const chunk of stream) {
+      console.log(chunk.text);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Structured output
+
+Request a response that conforms to a specific schema using `with_structured_output()`.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from pydantic import BaseModel, Field
+
+    class Movie(BaseModel):
+        """A movie with details."""
+        title: str = Field(description="The title of the movie")
+        year: int = Field(description="The year the movie was released")
+        director: str = Field(description="The director of the movie")
+        rating: float = Field(description="The movie's rating out of 10")
+
+    model_with_structure = model.with_structured_output(Movie)
+    response = model_with_structure.invoke("Provide details about the movie Inception")
+    print(response)  # Movie(title="Inception", year=2010, director="Christopher Nolan", rating=8.8)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import * as z from "zod";
+
+    const Movie = z.object({
+      title: z.string().describe("The title of the movie"),
+      year: z.number().describe("The year the movie was released"),
+      director: z.string().describe("The director of the movie"),
+      rating: z.number().describe("The movie's rating out of 10"),
+    });
+
+    const modelWithStructure = model.withStructuredOutput(Movie);
+    const response = await modelWithStructure.invoke("Provide details about the movie Inception");
+    console.log(response);
+    // { title: "Inception", year: 2010, director: "Christopher Nolan", rating: 8.8 }
+    ```
+  </Tab>
+</Tabs>
+
+## Supported providers
+
+LangChain supports all major model providers through dedicated integration packages. Install the package for your chosen provider:
+
+<Tabs>
+  <Tab title="Python">
+    | Provider | Install command |
+    |----------|----------------|
+    | OpenAI | `pip install langchain-openai` |
+    | Anthropic | `pip install langchain-anthropic` |
+    | Google Gemini | `pip install langchain-google-genai` |
+    | AWS Bedrock | `pip install langchain-aws` |
+    | Azure OpenAI | `pip install langchain-openai` |
+    | Ollama (local) | `pip install langchain-ollama` |
+    | Fireworks | `pip install langchain-fireworks` |
+    | HuggingFace | `pip install langchain-huggingface` |
+  </Tab>
+  <Tab title="TypeScript">
+    | Provider | Install command |
+    |----------|----------------|
+    | OpenAI | `npm install @langchain/openai` |
+    | Anthropic | `npm install @langchain/anthropic` |
+    | Google Gemini | `npm install @langchain/google-genai` |
+    | AWS Bedrock | `npm install @langchain/aws` |
+    | Azure OpenAI | `npm install @langchain/openai` |
+    | Ollama (local) | `npm install @langchain/ollama` |
+  </Tab>
+</Tabs>
+
+Browse the [full list of supported providers](/oss/integrations/providers) for all available integrations.
+
+<Tip>
+For structured output, tool calling, and provider-specific features like prompt caching, see the [Agents](/oss/langchain/agents) guide and the individual [integrations](/oss/integrations/overview).
+</Tip>

@@ -1,0 +1,104 @@
+---
+title: "Create your first Fleet agent"
+sidebarTitle: "Quickstart"
+description: "Build and deploy a Fleet AI agent in minutes using a pre-built template. Connect tools, test in chat, and start automating real tasks."
+---
+
+Fleet makes it easy to create AI agents without writing code. In this quickstart, you'll use the **Email Assistant** template to build an agent that organizes your inbox — then you can test it interactively in chat.
+
+## Before you start
+
+You'll need:
+- A LangSmith account ([sign up here](https://smith.langchain.com/agents?skipOnboarding=true))
+- A Gmail account and Google Calendar
+- An OpenAI or Anthropic API key
+
+## Step 1: Get a model API key
+
+Your agent needs an API key to connect to an AI model.
+
+<Tabs>
+  <Tab title="OpenAI">
+    1. Go to [platform.openai.com/api-keys](https://platform.openai.com/api-keys).
+    2. Click **Create new secret key** and give it a name like "Fleet".
+    3. Copy the key — it starts with `sk-`.
+  </Tab>
+  <Tab title="Anthropic">
+    1. Go to [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys).
+    2. Click **Create Key** and give it a name like "Fleet".
+    3. Copy the key — it starts with `sk-ant-`.
+  </Tab>
+</Tabs>
+
+<Warning>
+Both services charge based on usage. Review pricing before proceeding.
+</Warning>
+
+## Step 2: Add your API key to LangSmith
+
+<Steps>
+  <Step title="Open Settings">
+    Go to [smith.langchain.com](https://smith.langchain.com) and click **Settings** in the bottom-left navigation.
+  </Step>
+  <Step title="Go to Secrets">
+    Click the **Secrets** tab at the top.
+  </Step>
+  <Step title="Save your key">
+    Click **Add secret**, enter the key name (`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`), paste your key as the value, and click **Save secret**.
+  </Step>
+</Steps>
+
+## Step 3: Create your agent
+
+<Steps>
+  <Step title="Navigate to Fleet">
+    In the LangSmith UI, click **Switch to Fleet** at the top of the left-hand navigation.
+  </Step>
+  <Step title="Choose a template">
+    Select **Templates** in the left navigation, then choose **Email Assistant** and click **Use this template**.
+
+    <Tip>
+    You can also start from scratch using **+ New Agent** → **Chat** (describe your agent) or **Create manually**.
+    </Tip>
+  </Step>
+  <Step title="Connect your Google accounts">
+    Click **Connect**, sign in with Google, review the permissions, and click **Allow**. You'll be redirected back to LangSmith where your agent is created.
+  </Step>
+</Steps>
+
+<Info>
+Your agent only accesses your accounts when working on tasks you assign it. You can revoke access at any time from your Google account settings.
+</Info>
+
+## Step 4: Test your agent
+
+<Steps>
+  <Step title="Review the instructions">
+    The template comes with a pre-filled system prompt. Read through it and make any adjustments, then click **Save changes**.
+  </Step>
+  <Step title="Start a test chat">
+    In the right-hand panel, select the **Test Chat** tab and try a request like:
+
+    > _Apply a "Review" label to emails that require action from me_
+  </Step>
+  <Step title="Approve steps">
+    Your agent will ask for your approval before taking actions. Click **Continue** to approve each step. Once satisfied, click **Save changes**.
+  </Step>
+</Steps>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Try more templates" icon="layout-grid" href="/fleet/templates">
+    Explore pre-built agents for scheduling, recruiting, and social media monitoring.
+  </Card>
+  <Card title="Connect more tools" icon="plug" href="/fleet/tools">
+    Add Slack, GitHub, Linear, and other integrations to your agent.
+  </Card>
+  <Card title="Set up channels" icon="bolt" href="/fleet/channels">
+    Trigger your agent automatically from Slack messages, emails, or schedules.
+  </Card>
+  <Card title="Call from code" icon="code" href="/fleet/code">
+    Invoke your Fleet agent programmatically via the LangGraph SDK or REST API.
+  </Card>
+</CardGroup>

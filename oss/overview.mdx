@@ -1,0 +1,50 @@
+---
+title: "LangChain open source frameworks overview"
+sidebarTitle: "Overview"
+description: "LangChain open source includes Deep Agents, LangChain, and LangGraph. Pick the right framework for quick prototypes or production-grade stateful workflows."
+---
+
+LangChain provides three open source frameworks you can use individually or together depending on how much control you need. Deep Agents gets you a capable, batteries-included agent in minutes. LangChain gives you a prebuilt agent architecture with 100+ provider integrations. LangGraph lets you design complex, stateful workflows at the lowest level.
+
+## Which framework should you use?
+
+| Framework | Best for | Complexity |
+|-----------|----------|------------|
+| **Deep Agents** | Production agents that need built-in planning, memory, file system tools, and subagent spawning | Low—fastest to start |
+| **LangChain** | Custom agents with fine-grained control over tools, models, and prompts across 100+ providers | Medium—sensible defaults, fully configurable |
+| **LangGraph** | Complex workflows combining deterministic logic with agentic steps, human-in-the-loop, and durable execution | High—low-level primitives, maximum flexibility |
+
+<Tip>
+When in doubt, start with LangChain agents. You can always drop down to LangGraph if you need lower-level orchestration, or switch to Deep Agents for built-in capabilities like automatic context compression and subagent spawning.
+</Tip>
+
+## Frameworks
+
+<CardGroup cols={3}>
+  <Card title="Deep Agents" icon="bolt" href="/oss/deepagents/overview">
+    Batteries-included agents with planning, a virtual filesystem, and subagent spawning built in. The fastest path from idea to working agent.
+  </Card>
+  <Card title="LangChain" icon="wand" href="/oss/langchain/overview">
+    Prebuilt agent architecture and 100+ integrations for any model or tool. Build agents in under 10 lines of code while keeping full control.
+  </Card>
+  <Card title="LangGraph" icon="chart-dots" href="/oss/langgraph/overview">
+    Low-level orchestration framework for building stateful, long-running agents with durable execution, human-in-the-loop support, and persistence.
+  </Card>
+</CardGroup>
+
+## Quickstarts
+
+<CardGroup cols={2}>
+  <Card title="LangChain quickstart" icon="player-play" href="/oss/langchain-quickstart">
+    Build your first LangChain agent with a tool call in under 5 minutes.
+  </Card>
+  <Card title="LangGraph quickstart" icon="player-play" href="/oss/langgraph-quickstart">
+    Build a stateful calculator agent using LangGraph's Graph API.
+  </Card>
+</CardGroup>
+
+## How the frameworks relate
+
+LangChain agents are built on top of LangGraph. This means you get LangGraph's durable execution, persistence, and human-in-the-loop support automatically when you use `create_agent()`. Deep Agents extend LangChain agents further with built-in tools and planning capabilities.
+
+You can mix and match: start a project with LangChain agents, then access the underlying LangGraph graph when you need lower-level control.

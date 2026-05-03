@@ -1,0 +1,109 @@
+---
+title: "Connect tools to your Fleet agent"
+sidebarTitle: "Tools"
+description: "Give your Fleet agent access to Gmail, Slack, GitHub, and web search. Add tools to a single agent or make them available workspace-wide."
+---
+
+Tools give your Fleet agent the ability to take real-world actions — reading emails, searching the web, creating issues, sending Slack messages, and more. You can add tools to a specific agent or make them available to all agents in your workspace.
+
+## Add a tool
+
+<Tabs>
+  <Tab title="To a specific agent">
+    1. In [Fleet](https://smith.langchain.com/agents), open the agent you want to update.
+    2. Click the **Edit Agent** icon next to the agent name.
+    3. In the graph view, navigate to the **Toolbox** section and click **+ Add**.
+    4. Select the tool and follow the authentication prompts.
+    5. Click **Save Changes**.
+  </Tab>
+  <Tab title="To all agents (workspace)">
+    1. Navigate to the [Fleet > Integrations tab](https://smith.langchain.com/agents/tools).
+    2. Find the tool you want to add and click **Connect**.
+    3. Follow the prompts to authenticate and connect.
+  </Tab>
+</Tabs>
+
+## Remove a tool
+
+<Steps>
+  <Step title="Open the agent editor">
+    In [Fleet](https://smith.langchain.com/agents), select your agent and click the **Edit Agent** icon.
+  </Step>
+  <Step title="Remove the tool">
+    In the **Toolbox** section, find the tool and click the trash icon next to it.
+  </Step>
+  <Step title="Save">
+    Click **Save Changes**.
+  </Step>
+</Steps>
+
+## Available tools
+
+The following tools are available in LangSmith Fleet. For the full up-to-date list, visit the [Fleet > Integrations tab](https://smith.langchain.com/agents/tools).
+
+### Google
+
+<CardGroup cols={3}>
+  <Card title="Gmail" icon="mail">
+    Read, compose, reply to, and organize emails in your Gmail inbox.
+  </Card>
+  <Card title="Google Calendar" icon="calendar">
+    View, create, and manage calendar events and meeting schedules.
+  </Card>
+  <Card title="Google Docs" icon="file-text">
+    Create, read, and edit documents in Google Docs.
+  </Card>
+  <Card title="Google Sheets" icon="table">
+    Read, update, and analyze data in Google Sheets.
+  </Card>
+  <Card title="Google BigQuery" icon="database">
+    Run queries and analyze large datasets in BigQuery.
+  </Card>
+</CardGroup>
+
+### Microsoft
+
+<CardGroup cols={3}>
+  <Card title="Outlook" icon="mail">
+    Read, draft, and organize Outlook emails and calendar events.
+  </Card>
+  <Card title="Teams" icon="message">
+    Send and read messages in Microsoft Teams channels.
+  </Card>
+  <Card title="Excel" icon="table">
+    Read, write, and analyze data in Excel workbooks.
+  </Card>
+  <Card title="SharePoint" icon="folder">
+    Browse and manage documents in Microsoft SharePoint.
+  </Card>
+  <Card title="Word" icon="file-text">
+    Search, read, and edit Microsoft Word documents.
+  </Card>
+</CardGroup>
+
+### Productivity & communication
+
+<CardGroup cols={3}>
+  <Card title="Slack" icon="message">
+    Send messages, manage channels, and automate Slack notifications.
+  </Card>
+  <Card title="GitHub" icon="git-branch">
+    Browse repos, manage issues and pull requests, and review code.
+  </Card>
+  <Card title="Linear" icon="list-check">
+    Track issues, plan sprints, and coordinate team projects.
+  </Card>
+  <Card title="Exa" icon="search">
+    AI-powered semantic web search for relevant results.
+  </Card>
+  <Card title="Tavily" icon="world">
+    Search the web and extract structured content from pages.
+  </Card>
+  <Card title="LinkedIn" icon="user">
+    Create posts and engage with your professional network.
+  </Card>
+</CardGroup>
+
+<Tip>
+You can also connect remote MCP servers to add custom tools. See [MCP servers](/fleet/mcp-servers) for details.
+</Tip>

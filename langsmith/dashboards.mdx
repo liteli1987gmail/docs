@@ -1,0 +1,125 @@
+---
+title: "Monitor agent performance with LangSmith dashboards"
+sidebarTitle: "Dashboards"
+description: "Use LangSmith dashboards to track latency, token usage, error rates, and feedback scores. Build custom charts and filter by project, date, tags, and metadata."
+---
+
+Dashboards give you a high-level view of how your application is behaving in production. Instead of clicking through individual traces, you can see aggregated trends—latency spikes, rising error rates, token costs, and feedback score distributions—at a glance. LangSmith offers two dashboard types: prebuilt dashboards that appear automatically for every project, and custom dashboards you configure yourself.
+
+## Prebuilt dashboards
+
+Every tracing project gets a prebuilt dashboard automatically. To open it, navigate to your project in the **Tracing** tab and click the **Dashboard** button in the top right.
+
+Prebuilt dashboards are divided into the following sections:
+
+| Section | What it shows |
+| :------ | :------------ |
+| Traces | Trace count, latency, and error rates |
+| LLM calls | LLM call count and latency for all runs with type `llm` |
+| Cost & tokens | Total and per-trace token counts and costs, broken down by prompt and completion tokens |
+| Tools | Run counts, error rates, and latency for tool runs, limited to the top 5 most frequent tools |
+| Run types | Counts, error rates, and latency for immediate children of the root run, limited to the top 5 most frequent names |
+| Feedback scores | Aggregate stats for the top 5 most frequent feedback keys |
+
+<Note>
+  You cannot modify a prebuilt dashboard. To customize the metrics displayed, create a custom dashboard instead.
+</Note>
+
+### Group by tag or metadata
+
+Use the **Group by** control at the top right of the dashboard to split all charts by a run tag or metadata key. For example, group by `environment` to compare production and staging side by side, or group by `model_version` to see how a model change affected latency.
+
+<Note>
+  The Tool and Run Type charts already have their own group by applied. The global group by setting does not affect those two sections.
+</Note>
+
+## Custom dashboards
+
+Create a custom dashboard when you want to track metrics that the prebuilt dashboard doesn't cover, or when you want to combine data from multiple projects in one view.
+
+### Create a dashboard
+
+<Steps>
+  <Step title="Open the Monitor tab">
+    Navigate to the **Monitor** tab in the left sidebar.
+  </Step>
+  <Step title="Create a new dashboard">
+    Click **+ New Dashboard**, enter a name and description, then click **Create**.
+  </Step>
+  <Step title="Add a chart">
+    Inside the dashboard, click **+ New Chart** to open the chart configuration pane.
+  </Step>
+</Steps>
+
+### Configure a chart
+
+**Select projects and filter runs**
+
+Choose one or more tracing projects to pull data from. Use the **Chart filters** section to narrow down which runs are included. You can filter by run name, run type, tags, metadata key-value pairs, error status, feedback score, and more.
+
+**Pick a metric**
+
+Select a metric from the dropdown to define the y-axis. Supported metrics include:
+
+- Run count
+- Latency (p50, p90, p99)
+- Token usage (prompt tokens, completion tokens, total)
+- Cost
+- Error rate
+- Feedback score (average for numeric feedback, counts for categorical)
+
+For metrics with the same unit (for example, prompt tokens and completion tokens), you can plot multiple metrics on one chart as separate lines.
+
+**Split data into series**
+
+Two approaches let you create multiple lines on a single chart:
+
+- **Group by**: automatically split runs by a tag, metadata key, run name, or run type. Limited to the top 5 values by frequency.
+- **Data series**: manually define individual series with separate filters. Use this when you need precise control over what each line represents.
+
+**Pick a chart type**
+
+Choose between a line chart (for time series) and a bar chart (for counts and comparisons).
+
+### Save and manage charts
+
+Click **Save** to add the chart to the dashboard. To edit, delete, or clone a chart, click the triple-dot menu in the chart's top right corner. Cloning opens a new configuration pane pre-filled with the original chart's settings.
+
+## Link a dashboard to a project
+
+By default, the **Dashboard** button on a tracing project page links to that project's prebuilt dashboard. To link to a custom dashboard instead:
+
+1. In the tracing project, click the three dots next to the **Dashboard** button.
+2. Select the custom dashboard you want to set as the default.
+
+## Example: track agent decisions over time
+
+Suppose you have an email assistant agent that decides whether to reply, notify, or ignore each email. You can build a chart to track how frequently each decision occurs.
+
+<Steps>
+  <Step title="Select the metric">
+    Set the metric to **Run count**.
+  </Step>
+  <Step title="Add chart filters">
+    Add a tree filter to include only traces that contain a run named `triage_input`. Add a second filter for **Is Root** = `true` so each email is counted once, not once per span.
+  </Step>
+  <Step title="Create data series">
+    Create three data series—one for each possible decision value (`email`, `notify`, `no`)—filtering on the output field `triage.response`.
+  </Step>
+</Steps>
+
+The resulting chart shows the volume of each decision over time, making it easy to spot distribution shifts that might indicate a prompt regression.
+
+## Filtering traces
+
+You can apply the same filtering logic used in custom dashboard charts directly in the tracing project view. Use **+ Add filter** to filter by:
+
+- **Run attributes**: name, type, error status, latency range
+- **Tags**: any string tag attached to a run
+- **Metadata**: key-value pairs attached to runs
+- **Inputs and outputs**: full-text search or key-value path (for example, `documents.page_content` = `"Paris"`)
+- **Feedback**: key and score value
+
+Once you've built a useful filter, click **Save as** to store it as a named view for quick reuse. To share a filter with a colleague or use it in the SDK/API, click the copy icon in the filter bar to get the filter as a query string.
+
+For a complete reference on filter operators and advanced filtering techniques, see [Tracing](/langsmith/tracing).

@@ -1,0 +1,402 @@
+---
+title: "Build a stateful agent with LangGraph"
+sidebarTitle: "LangGraph quickstart"
+description: "Define state, build a graph with StateGraph, add nodes and edges, compile, and run a tool-calling agent using LangGraph's low-level orchestration API."
+---
+
+LangGraph is a low-level orchestration framework for building stateful agents. Unlike `create_agent()` in LangChain—which handles the agent loop for you—LangGraph lets you define the graph of nodes and edges explicitly. This gives you fine-grained control over execution flow, state transitions, and persistence.
+
+This quickstart builds a calculator agent using the Graph API. You'll define tools, a state schema, model and tool nodes, conditional routing logic, and compile everything into a runnable graph.
+
+<Note>
+This example uses Claude (Anthropic). Set your API key before running: `export ANTHROPIC_API_KEY="your-api-key"`.
+</Note>
+
+## What makes LangGraph different
+
+LangGraph makes three things explicit that higher-level frameworks handle invisibly:
+
+- **Explicit state**: You define a typed state schema that flows through every node in the graph. Every node reads from and writes to this shared state.
+- **Persistence**: LangGraph can checkpoint state after every node, enabling durable execution across failures and human-in-the-loop interrupts.
+- **Human-in-the-loop**: You can interrupt a graph mid-execution to inspect or modify state before continuing.
+
+## Install LangGraph
+
+<Tabs>
+  <Tab title="Python">
+    <CodeGroup>
+      ```bash pip
+      pip install -U langgraph langchain-anthropic
+      ```
+      ```bash uv
+      uv add langgraph langchain-anthropic
+      ```
+    </CodeGroup>
+  </Tab>
+  <Tab title="TypeScript">
+    <CodeGroup>
+      ```bash npm
+      npm install @langchain/langgraph @langchain/anthropic @langchain/core zod
+      ```
+      ```bash pnpm
+      pnpm add @langchain/langgraph @langchain/anthropic @langchain/core zod
+      ```
+    </CodeGroup>
+  </Tab>
+</Tabs>
+
+## Build the agent
+
+<Steps>
+  <Step title="Define tools and model">
+    Create arithmetic tools and initialize a model with those tools bound to it.
+
+    <Tabs>
+      <Tab title="Python">
+        ```python
+        from langchain.tools import tool
+        from langchain.chat_models import init_chat_model
+
+        model = init_chat_model(
+            "claude-sonnet-4-6",
+            temperature=0
+        )
+
+        @tool
+        def multiply(a: int, b: int) -> int:
+            """Multiply `a` and `b`.
+
+            Args:
+                a: First int
+                b: Second int
+            """
+            return a * b
+
+        @tool
+        def add(a: int, b: int) -> int:
+            """Adds `a` and `b`.
+
+            Args:
+                a: First int
+                b: Second int
+            """
+            return a + b
+
+        @tool
+        def divide(a: int, b: int) -> float:
+            """Divide `a` and `b`.
+
+            Args:
+                a: First int
+                b: Second int
+            """
+            return a / b
+
+        tools = [add, multiply, divide]
+        tools_by_name = {tool.name: tool for tool in tools}
+        model_with_tools = model.bind_tools(tools)
+        ```
+      </Tab>
+      <Tab title="TypeScript">
+        ```typescript
+        import { ChatAnthropic } from "@langchain/anthropic";
+        import { tool } from "@langchain/core/tools";
+        import * as z from "zod";
+
+        const model = new ChatAnthropic({
+          model: "claude-sonnet-4-6",
+          temperature: 0,
+        });
+
+        const add = tool(({ a, b }) => a + b, {
+          name: "add",
+          description: "Add two numbers",
+          schema: z.object({
+            a: z.number().describe("First number"),
+            b: z.number().describe("Second number"),
+          }),
+        });
+
+        const multiply = tool(({ a, b }) => a * b, {
+          name: "multiply",
+          description: "Multiply two numbers",
+          schema: z.object({
+            a: z.number().describe("First number"),
+            b: z.number().describe("Second number"),
+          }),
+        });
+
+        const divide = tool(({ a, b }) => a / b, {
+          name: "divide",
+          description: "Divide two numbers",
+          schema: z.object({
+            a: z.number().describe("First number"),
+            b: z.number().describe("Second number"),
+          }),
+        });
+
+        const toolsByName = {
+          [add.name]: add,
+          [multiply.name]: multiply,
+          [divide.name]: divide,
+        };
+        const tools = Object.values(toolsByName);
+        const modelWithTools = model.bindTools(tools);
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Define state">
+    The state schema defines what data flows through the graph. New messages are appended to the existing list using a reducer.
+
+    <Tabs>
+      <Tab title="Python">
+        ```python
+        from langchain.messages import AnyMessage
+        from typing_extensions import TypedDict, Annotated
+        import operator
+
+        class MessagesState(TypedDict):
+            messages: Annotated[list[AnyMessage], operator.add]
+            llm_calls: int
+        ```
+
+        <Tip>
+          The `Annotated` type with `operator.add` ensures that new messages are appended to the existing list rather than replacing it.
+        </Tip>
+      </Tab>
+      <Tab title="TypeScript">
+        ```typescript
+        import {
+          StateGraph,
+          StateSchema,
+          MessagesValue,
+          ReducedValue,
+          GraphNode,
+          ConditionalEdgeRouter,
+          START,
+          END,
+        } from "@langchain/langgraph";
+        import { z } from "zod/v4";
+
+        const MessagesState = new StateSchema({
+          messages: MessagesValue,
+          llmCalls: new ReducedValue(
+            z.number().default(0),
+            { reducer: (x, y) => x + y }
+          ),
+        });
+        ```
+
+        <Tip>
+          `MessagesValue` provides a built-in reducer for appending messages. `ReducedValue` with `(x, y) => x + y` accumulates the LLM call count.
+        </Tip>
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Define the model node">
+    The model node calls the LLM with the current messages and returns the response.
+
+    <Tabs>
+      <Tab title="Python">
+        ```python
+        from langchain.messages import SystemMessage
+
+        def llm_call(state: dict):
+            """LLM decides whether to call a tool or not"""
+            return {
+                "messages": [
+                    model_with_tools.invoke(
+                        [
+                            SystemMessage(
+                                content="You are a helpful assistant tasked with performing arithmetic on a set of inputs."
+                            )
+                        ]
+                        + state["messages"]
+                    )
+                ],
+                "llm_calls": state.get('llm_calls', 0) + 1
+            }
+        ```
+      </Tab>
+      <Tab title="TypeScript">
+        ```typescript
+        import { SystemMessage } from "@langchain/core/messages";
+
+        const llmCall: GraphNode<typeof MessagesState> = async (state) => {
+          const response = await modelWithTools.invoke([
+            new SystemMessage(
+              "You are a helpful assistant tasked with performing arithmetic on a set of inputs."
+            ),
+            ...state.messages,
+          ]);
+          return {
+            messages: [response],
+            llmCalls: 1,
+          };
+        };
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Define the tool node">
+    The tool node reads tool calls from the last AI message, executes the matching tools, and returns the results as `ToolMessage` objects.
+
+    <Tabs>
+      <Tab title="Python">
+        ```python
+        from langchain.messages import ToolMessage
+
+        def tool_node(state: dict):
+            """Performs the tool call"""
+            result = []
+            for tool_call in state["messages"][-1].tool_calls:
+                tool = tools_by_name[tool_call["name"]]
+                observation = tool.invoke(tool_call["args"])
+                result.append(ToolMessage(content=observation, tool_call_id=tool_call["id"]))
+            return {"messages": result}
+        ```
+      </Tab>
+      <Tab title="TypeScript">
+        ```typescript
+        import { AIMessage, ToolMessage } from "@langchain/core/messages";
+
+        const toolNode: GraphNode<typeof MessagesState> = async (state) => {
+          const lastMessage = state.messages.at(-1);
+
+          if (lastMessage == null || !AIMessage.isInstance(lastMessage)) {
+            return { messages: [] };
+          }
+
+          const result: ToolMessage[] = [];
+          for (const toolCall of lastMessage.tool_calls ?? []) {
+            const tool = toolsByName[toolCall.name];
+            const observation = await tool.invoke(toolCall);
+            result.push(observation);
+          }
+
+          return { messages: result };
+        };
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Add conditional routing">
+    A conditional edge function determines whether to route back to the tool node (if the LLM made tool calls) or to end the graph.
+
+    <Tabs>
+      <Tab title="Python">
+        ```python
+        from typing import Literal
+        from langgraph.graph import StateGraph, START, END
+
+        def should_continue(state: MessagesState) -> Literal["tool_node", END]:
+            """Decide if we should continue the loop or stop"""
+            messages = state["messages"]
+            last_message = messages[-1]
+
+            if last_message.tool_calls:
+                return "tool_node"
+
+            return END
+        ```
+      </Tab>
+      <Tab title="TypeScript">
+        ```typescript
+        const shouldContinue: ConditionalEdgeRouter<typeof MessagesState, "toolNode"> = (state) => {
+          const lastMessage = state.messages.at(-1);
+
+          if (!lastMessage || !AIMessage.isInstance(lastMessage)) {
+            return END;
+          }
+
+          if (lastMessage.tool_calls?.length) {
+            return "toolNode";
+          }
+
+          return END;
+        };
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Build, compile, and run">
+    Wire nodes and edges together with `StateGraph`, compile to a runnable, and invoke it.
+
+    <Tabs>
+      <Tab title="Python">
+        ```python
+        from langchain.messages import HumanMessage
+
+        agent_builder = StateGraph(MessagesState)
+
+        agent_builder.add_node("llm_call", llm_call)
+        agent_builder.add_node("tool_node", tool_node)
+
+        agent_builder.add_edge(START, "llm_call")
+        agent_builder.add_conditional_edges(
+            "llm_call",
+            should_continue,
+            ["tool_node", END]
+        )
+        agent_builder.add_edge("tool_node", "llm_call")
+
+        agent = agent_builder.compile()
+
+        messages = [HumanMessage(content="Add 3 and 4.")]
+        messages = agent.invoke({"messages": messages})
+        for m in messages["messages"]:
+            m.pretty_print()
+        ```
+      </Tab>
+      <Tab title="TypeScript">
+        ```typescript
+        import { HumanMessage } from "@langchain/core/messages";
+        import { StateGraph, START, END } from "@langchain/langgraph";
+
+        const agent = new StateGraph(MessagesState)
+          .addNode("llmCall", llmCall)
+          .addNode("toolNode", toolNode)
+          .addEdge(START, "llmCall")
+          .addConditionalEdges("llmCall", shouldContinue, ["toolNode", END])
+          .addEdge("toolNode", "llmCall")
+          .compile();
+
+        const result = await agent.invoke({
+          messages: [new HumanMessage("Add 3 and 4.")],
+        });
+
+        for (const message of result.messages) {
+          console.log(`[${message.type}]: ${message.text}`);
+        }
+        ```
+      </Tab>
+    </Tabs>
+  </Step>
+</Steps>
+
+<Tip>
+Use [LangSmith](/langsmith/tracing) to trace your LangGraph agent. Set `LANGSMITH_TRACING=true` and your API key before running.
+</Tip>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Graph API overview" icon="chart-dots" href="/oss/langgraph/overview">
+    Learn about nodes, edges, state, reducers, and how the graph executes.
+  </Card>
+  <Card title="Human-in-the-loop" icon="user" href="/oss/langgraph/persistence">
+    Pause a graph mid-execution to inspect or modify state before continuing.
+  </Card>
+  <Card title="Add memory" icon="brain" href="/oss/langgraph/persistence">
+    Persist state across sessions with checkpointers and long-term memory.
+  </Card>
+  <Card title="LangChain agents" icon="wand" href="/oss/langchain/agents">
+    Use the higher-level create_agent() abstraction built on top of LangGraph.
+  </Card>
+</CardGroup>

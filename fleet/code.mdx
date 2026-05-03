@@ -1,0 +1,177 @@
+---
+title: "Call Fleet agents from your code"
+sidebarTitle: "Call from code"
+description: "Invoke Fleet agents programmatically using the LangGraph SDK or REST API in Python, TypeScript, or any language that supports HTTP."
+---
+
+You can invoke Fleet agents directly from your application using the LangGraph SDK or the REST API. Fleet agents run on LangSmith's Agent Server, so you use the same SDK and API methods as any other LangSmith deployment.
+
+## Prerequisites
+
+- A LangSmith account with a Fleet agent
+- A LangSmith [Personal Access Token (PAT)](https://smith.langchain.com/settings) for authentication
+- The LangGraph SDK installed (for SDK usage):
+
+<CodeGroup>
+```bash Python
+pip install langgraph-sdk python-dotenv
+```
+```bash TypeScript
+yarn add @langchain/langgraph-sdk
+```
+</CodeGroup>
+
+## Get your agent ID and URL
+
+1. In [Fleet](https://smith.langchain.com/agents), open your agent and click **Edit Agent**.
+2. Click the **Settings** icon in the top right, then click **View code snippets**.
+3. Copy your `agent_id` and `api_url`.
+
+Add your Personal Access Token to a `.env` file:
+
+```bash .env
+LANGGRAPH_API_KEY=your-personal-access-token
+```
+
+## Stateless run
+
+Send a single message and wait for the full response — no conversation history is persisted.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import os, asyncio
+    from dotenv import load_dotenv
+    from langgraph_sdk.client import get_client
+
+    load_dotenv()
+
+    client = get_client(
+        url="https://<AGENT-URL>.us.langgraph.app",
+        api_key=os.getenv("LANGGRAPH_API_KEY"),
+        headers={"X-Auth-Scheme": "langsmith-api-key"},
+    )
+
+    result = await client.runs.wait(
+        None,
+        "your-agent-id",
+        input={"messages": [{"role": "user", "content": "What can you help me with?"}]},
+    )
+    print(result)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```ts
+    import "dotenv/config";
+    import { Client } from "@langchain/langgraph-sdk";
+
+    const client = new Client({
+      apiUrl: "https://<AGENT-URL>.us.langgraph.app",
+      apiKey: process.env.LANGGRAPH_API_KEY,
+      defaultHeaders: { "X-Auth-Scheme": "langsmith-api-key" },
+    });
+
+    const result = await client.runs.wait(null, "your-agent-id", {
+      input: { messages: [{ role: "user", content: "What can you help me with?" }] },
+    });
+    console.log(result);
+    ```
+  </Tab>
+  <Tab title="cURL">
+    ```bash
+    curl --request POST \
+      --url "https://<AGENT-URL>.us.langgraph.app/runs/wait" \
+      --header "Content-Type: application/json" \
+      --header "X-Api-Key: your-personal-access-token" \
+      --header "X-Auth-Scheme: langsmith-api-key" \
+      --data '{"assistant_id": "your-agent-id", "input": {"messages": [{"role": "user", "content": "Hello"}]}}'
+    ```
+  </Tab>
+</Tabs>
+
+## Streaming run
+
+Stream the response token-by-token as it is generated.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    async for chunk in client.runs.stream(
+        None,
+        "your-agent-id",
+        input={"messages": [{"role": "user", "content": "Summarize my inbox"}]},
+        stream_mode="updates",
+    ):
+        if chunk.data and "run_id" not in chunk.data:
+            print(chunk.data)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```ts
+    const stream = client.runs.stream(null, "your-agent-id", {
+      input: { messages: [{ role: "user", content: "Summarize my inbox" }] },
+      streamMode: "updates",
+    });
+    for await (const chunk of stream) {
+      if (chunk.data && !("run_id" in chunk.data)) {
+        console.log(chunk.data);
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Stateful run with threads
+
+Create a thread to maintain conversation history across multiple turns.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    thread = await client.threads.create()
+
+    # First message
+    async for chunk in client.runs.stream(
+        thread["thread_id"], "your-agent-id",
+        input={"messages": [{"role": "user", "content": "Hi, I'm Alice."}]},
+        stream_mode="updates",
+    ):
+        if chunk.data and "run_id" not in chunk.data:
+            print(chunk.data)
+
+    # Follow-up — agent remembers context
+    async for chunk in client.runs.stream(
+        thread["thread_id"], "your-agent-id",
+        input={"messages": [{"role": "user", "content": "What is my name?"}]},
+        stream_mode="updates",
+    ):
+        if chunk.data and "run_id" not in chunk.data:
+            print(chunk.data)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```ts
+    const thread = await client.threads.create();
+
+    for await (const chunk of client.runs.stream(thread.thread_id, "your-agent-id", {
+      input: { messages: [{ role: "user", content: "Hi, I'm Alice." }] },
+      streamMode: "updates",
+    })) {
+      if (chunk.data && !("run_id" in chunk.data)) console.log(chunk.data);
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## REST API reference
+
+All endpoints require `Content-Type: application/json`, `X-Api-Key: <your-PAT>`, and `X-Auth-Scheme: langsmith-api-key`.
+
+| Operation | Method | Path |
+|---|---|---|
+| Get agent info | `GET` | `/assistants/<AGENT_ID>` |
+| Create thread | `POST` | `/threads` |
+| Run (wait) | `POST` | `/runs/wait` |
+| Run (stream) | `POST` | `/runs/stream` |
+| Thread run (wait) | `POST` | `/threads/<THREAD_ID>/runs/wait` |
+| Thread run (stream) | `POST` | `/threads/<THREAD_ID>/runs/stream` |

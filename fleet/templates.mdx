@@ -1,0 +1,57 @@
+---
+title: "Start faster with Fleet agent templates"
+sidebarTitle: "Templates"
+description: "Use pre-built Fleet templates with tools, instructions, and channels already configured. Clone and customize for your specific needs."
+---
+
+Fleet templates are pre-configured agents built for common use cases. Each template includes a system prompt, a curated set of tools, and optionally pre-configured channels. You clone a template to create your own independent copy that you can customize without affecting the original.
+
+<Tip>
+If you're new to Fleet, follow the [quickstart](/fleet/quickstart) to build your first agent using the Email Assistant template.
+</Tip>
+
+## What's included in a template
+
+Each template bundles:
+
+- **Instructions** — A system prompt defining the agent's behavior and capabilities. You can edit this to match your specific needs.
+- **Tools** — Pre-selected integrations the agent needs to do its job (for example, Gmail and Google Calendar for an email assistant).
+- **Channels** (optional) — Some templates include a trigger channel so the agent activates automatically on new events.
+
+## Use a template
+
+<Steps>
+  <Step title="Open Fleet">
+    In the LangSmith UI, click **Switch to Fleet** in the left navigation.
+  </Step>
+  <Step title="Browse templates">
+    Select **Templates** in the left navigation to see all available templates.
+  </Step>
+  <Step title="Clone the template">
+    Select a template and click **Use this template**. You'll be prompted to connect any required accounts.
+  </Step>
+  <Step title="Customize and save">
+    Review and edit the instructions, add or remove tools, and adjust channels. Click **Save changes** when done.
+  </Step>
+</Steps>
+
+## Available templates
+
+<CardGroup cols={2}>
+  <Card title="Email Assistant" icon="mail">
+    Automate email triage — flag important messages, draft replies, and schedule meetings based on your inbox.
+  </Card>
+  <Card title="Daily Calendar Brief" icon="calendar">
+    Get a daily briefing with upcoming meetings, context from invites, and preparation notes.
+  </Card>
+  <Card title="LinkedIn Recruiter" icon="users">
+    Automate candidate sourcing — digest requirements, search LinkedIn, and produce a shortlist.
+  </Card>
+  <Card title="Social Media AI Monitor" icon="trending-up">
+    Track top AI discussions on X and Hacker News and deliver a daily Slack digest with key updates.
+  </Card>
+</CardGroup>
+
+<Info>
+For the full up-to-date template catalog, visit [langchain.com/templates](https://www.langchain.com/templates).
+</Info>

@@ -1,0 +1,348 @@
+---
+title: "Add tools to your LangChain agent"
+sidebarTitle: "Tools"
+description: "Tools are functions your LangChain agent can call to fetch data or take actions. Define them with @tool in Python or tool() in TypeScript."
+---
+
+Tools extend what agents can do—letting them fetch real-time data, execute code, query databases, and take actions in the world. Under the hood, a tool is a callable function with a well-defined input schema that gets passed to a chat model. The model decides when to invoke a tool based on the conversation context, and what arguments to provide.
+
+## Define a tool
+
+### Basic tool definition
+
+<Tabs>
+  <Tab title="Python">
+    The simplest way to create a tool is with the `@tool` decorator. The function's docstring becomes the tool's description, which helps the model understand when to use it. Type hints are required—they define the tool's input schema.
+
+    ```python
+    from langchain.tools import tool
+
+    @tool
+    def search_database(query: str, limit: int = 10) -> str:
+        """Search the customer database for records matching the query.
+
+        Args:
+            query: Search terms to look for
+            limit: Maximum number of results to return
+        """
+        return f"Found {limit} results for '{query}'"
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    Import the `tool` function from `langchain` and use [Zod](https://zod.dev/) to define the input schema. The schema also provides descriptions the model uses to understand each argument.
+
+    ```ts
+    import * as z from "zod";
+    import { tool } from "langchain";
+
+    const searchDatabase = tool(
+      ({ query, limit }) => `Found ${limit} results for '${query}'`,
+      {
+        name: "search_database",
+        description: "Search the customer database for records matching the query.",
+        schema: z.object({
+          query: z.string().describe("Search terms to look for"),
+          limit: z.number().describe("Maximum number of results to return"),
+        }),
+      }
+    );
+    ```
+  </Tab>
+</Tabs>
+
+<Warning>
+Use `snake_case` for tool names (for example, `web_search` instead of `Web Search`). Some model providers reject names with spaces or special characters. Stick to alphanumeric characters, underscores, and hyphens.
+</Warning>
+
+### Custom tool name and description
+
+<Tabs>
+  <Tab title="Python">
+    Override the default name (derived from the function name) and description when you need something more precise:
+
+    ```python
+    from langchain.tools import tool
+
+    @tool("web_search", description="Search the web for up-to-date information on any topic.")
+    def search(query: str) -> str:
+        """Search the web."""
+        return f"Results for: {query}"
+
+    print(search.name)         # web_search
+    print(search.description)  # Search the web for up-to-date information on any topic.
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    Set the `name` and `description` fields in the second argument to `tool()`:
+
+    ```ts
+    import * as z from "zod";
+    import { tool } from "langchain";
+
+    const search = tool(
+      ({ query }) => `Results for: ${query}`,
+      {
+        name: "web_search",
+        description: "Search the web for up-to-date information on any topic.",
+        schema: z.object({
+          query: z.string().describe("The search query"),
+        }),
+      }
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Pass tools to an agent
+
+Pass your tools in the `tools` array when calling `create_agent()`.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from langchain.tools import tool
+    from langchain.agents import create_agent
+
+    @tool
+    def get_weather(city: str) -> str:
+        """Get weather for a given city."""
+        return f"It's always sunny in {city}!"
+
+    @tool
+    def search(query: str) -> str:
+        """Search for information."""
+        return f"Results for: {query}"
+
+    agent = create_agent(
+        model="openai:gpt-5.4",
+        tools=[get_weather, search],
+        system_prompt="You are a helpful assistant.",
+    )
+
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": "What's the weather in Tokyo?"}]}
+    )
+    print(result["messages"][-1].content_blocks)
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```ts
+    import * as z from "zod";
+    import { createAgent, tool } from "langchain";
+
+    const getWeather = tool(
+      (input) => `It's always sunny in ${input.city}!`,
+      {
+        name: "get_weather",
+        description: "Get the weather for a given city",
+        schema: z.object({
+          city: z.string().describe("The city to get the weather for"),
+        }),
+      }
+    );
+
+    const search = tool(
+      ({ query }) => `Results for: ${query}`,
+      {
+        name: "search",
+        description: "Search for information",
+        schema: z.object({
+          query: z.string().describe("The query to search for"),
+        }),
+      }
+    );
+
+    const agent = createAgent({
+      model: "gpt-5.4",
+      tools: [getWeather, search],
+    });
+
+    console.log(
+      await agent.invoke({
+        messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
+      })
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Access runtime context in tools
+
+Tools can read conversation state, user-specific context, and long-term memory at runtime. This information is injected automatically and hidden from the model.
+
+### Access conversation state
+
+<Tabs>
+  <Tab title="Python">
+    Add a `runtime: ToolRuntime` parameter to access the current conversation state. This parameter is hidden from the model—it won't appear in the tool's schema.
+
+    ```python
+    from langchain.tools import tool, ToolRuntime
+    from langchain.messages import HumanMessage
+
+    @tool
+    def get_last_user_message(runtime: ToolRuntime) -> str:
+        """Get the most recent message from the user."""
+        messages = runtime.state["messages"]
+
+        for message in reversed(messages):
+            if isinstance(message, HumanMessage):
+                return message.content
+
+        return "No user messages found"
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    Access the agent's context through the `config` parameter:
+
+    ```ts
+    import * as z from "zod";
+    import { tool } from "langchain";
+
+    const getUserName = tool(
+      (_, config) => {
+        return config.context.user_name;
+      },
+      {
+        name: "get_user_name",
+        description: "Get the user's name.",
+        schema: z.object({}),
+      }
+    );
+    ```
+  </Tab>
+</Tabs>
+
+### Pass user context at invocation time
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from dataclasses import dataclass
+    from langchain_openai import ChatOpenAI
+    from langchain.agents import create_agent
+    from langchain.tools import tool, ToolRuntime
+
+    @dataclass
+    class UserContext:
+        user_id: str
+
+    @tool
+    def get_account_info(runtime: ToolRuntime[UserContext]) -> str:
+        """Get the current user's account information."""
+        user_id = runtime.context.user_id
+        return f"Account holder: {user_id}"
+
+    model = ChatOpenAI(model="gpt-5.4")
+    agent = create_agent(
+        model,
+        tools=[get_account_info],
+        context_schema=UserContext,
+        system_prompt="You are a financial assistant.",
+    )
+
+    result = agent.invoke(
+        {"messages": [{"role": "user", "content": "What's my account info?"}]},
+        context=UserContext(user_id="user123"),
+    )
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```ts
+    import * as z from "zod";
+    import { ChatOpenAI } from "@langchain/openai";
+    import { createAgent, tool } from "langchain";
+
+    const getUserName = tool(
+      (_, config) => config.context.user_name,
+      {
+        name: "get_user_name",
+        description: "Get the user's name.",
+        schema: z.object({}),
+      }
+    );
+
+    const contextSchema = z.object({
+      user_name: z.string(),
+    });
+
+    const agent = createAgent({
+      model: new ChatOpenAI({ model: "gpt-5.4" }),
+      tools: [getUserName],
+      contextSchema,
+    });
+
+    const result = await agent.invoke(
+      { messages: [{ role: "user", content: "What is my name?" }] },
+      { context: { user_name: "John Smith" } }
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Use built-in tools
+
+LangChain provides a large collection of prebuilt tools for common tasks: web search, code interpretation, database access, and more. These tools can be passed directly to `create_agent()` without writing custom code.
+
+See the [tools and toolkits integration page](/oss/integrations/overview) for a complete list organized by category.
+
+## Use ToolNode for custom graphs
+
+If you're building a custom LangGraph workflow and need explicit control over tool execution, use `ToolNode` instead of `create_agent()`.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from langchain.tools import tool
+    from langgraph.prebuilt import ToolNode
+
+    @tool
+    def search(query: str) -> str:
+        """Search for information."""
+        return f"Results for: {query}"
+
+    @tool
+    def calculator(expression: str) -> str:
+        """Evaluate a math expression."""
+        return str(eval(expression))
+
+    tool_node = ToolNode([search, calculator])
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import { ToolNode } from "@langchain/langgraph/prebuilt";
+    import { tool } from "@langchain/core/tools";
+    import * as z from "zod";
+
+    const search = tool(
+      ({ query }) => `Results for: ${query}`,
+      {
+        name: "search",
+        description: "Search for information.",
+        schema: z.object({ query: z.string() }),
+      }
+    );
+
+    const toolNode = new ToolNode([search]);
+    ```
+  </Tab>
+</Tabs>
+
+<Tip>
+For details on tool return values, state updates, streaming from tools, and error handling, see the full [Tools reference](/oss/langchain/tools).
+</Tip>
+
+## Next steps
+
+<CardGroup cols={3}>
+  <Card title="Agents" icon="wand" href="/oss/langchain/agents">
+    Configure create_agent() with models, tools, and memory.
+  </Card>
+  <Card title="Models" icon="cpu" href="/oss/langchain/models">
+    Connect to any LLM with the unified model interface.
+  </Card>
+  <Card title="Integrations" icon="plug" href="/oss/integrations/overview">
+    Browse the full catalog of prebuilt tools and toolkits.
+  </Card>
+</CardGroup>

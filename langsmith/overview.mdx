@@ -1,0 +1,74 @@
+---
+title: "LangSmith: Observability and Evaluation for AI Agents"
+sidebarTitle: "Overview"
+description: "LangSmith is a framework-agnostic platform for building, debugging, and deploying AI agents. Trace, evaluate, and monitor every request in one place."
+---
+
+LangSmith gives you complete visibility into your AI applications—from the first LLM call in development through production monitoring at scale. Whether you're debugging a flaky agent, measuring output quality over time, or iterating on prompts with your team, LangSmith connects every part of your workflow.
+
+## The four pillars of LangSmith
+
+<CardGroup cols={2}>
+  <Card title="Observability" icon="route" href="/langsmith/tracing">
+    Capture every step your application takes—LLM calls, tool invocations, retrieval results, and more—as structured traces you can inspect, filter, and share.
+  </Card>
+  <Card title="Evaluation" icon="chart-bar" href="/langsmith/evaluation">
+    Measure and track output quality over time using automated evaluators, human annotation queues, and side-by-side experiment comparison.
+  </Card>
+  <Card title="Prompt engineering" icon="pencil" href="/langsmith/prompts">
+    Iterate on prompts with built-in versioning, A/B testing, and team collaboration so you can ship improvements with confidence.
+  </Card>
+  <Card title="Deployment" icon="rocket" href="/langsmith/deployment">
+    Deploy your agents as production-ready Agent Servers that scale on demand and integrate with your existing infrastructure.
+  </Card>
+</CardGroup>
+
+## Get started
+
+<Steps>
+  <Step title="Create an account">
+    Sign up for free at [smith.langchain.com](https://smith.langchain.com). No credit card required. You can log in with Google, GitHub, or email.
+  </Step>
+  <Step title="Create an API key">
+    Go to your [Settings page](https://smith.langchain.com/settings), select **API Keys**, and click **Create API Key**. Copy the key and store it securely—LangSmith displays it only once.
+  </Step>
+  <Step title="Install the SDK">
+    Install the LangSmith SDK for your language:
+
+    <CodeGroup>
+    ```bash Python
+    pip install langsmith
+    ```
+    ```bash TypeScript
+    npm install langsmith
+    ```
+    </CodeGroup>
+  </Step>
+  <Step title="Trace your first call">
+    Set your environment variables and run your application:
+
+    ```bash
+    export LANGSMITH_TRACING=true
+    export LANGSMITH_API_KEY="<your-api-key>"
+    ```
+
+    Any function decorated with `@traceable` (Python) or wrapped with `traceable` (TypeScript) will appear as a trace in the LangSmith UI. See the [quickstart](/langsmith/quickstart) for a complete working example.
+  </Step>
+</Steps>
+
+## Explore the docs
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="bolt" href="/langsmith/quickstart">
+    Set up tracing end-to-end in under five minutes with a working code example.
+  </Card>
+  <Card title="Tracing" icon="list-tree" href="/langsmith/tracing">
+    Learn how to instrument your code manually and understand the LangSmith data model.
+  </Card>
+  <Card title="Integrations" icon="plug" href="/langsmith/integrations">
+    Connect LangChain, LangGraph, OpenAI, Anthropic, and many other frameworks with minimal setup.
+  </Card>
+  <Card title="Dashboards" icon="chart-area" href="/langsmith/dashboards">
+    Build monitoring dashboards to track latency, token usage, error rates, and feedback scores.
+  </Card>
+</CardGroup>

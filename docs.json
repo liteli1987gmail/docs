@@ -1,0 +1,174 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "aspen",
+  "name": "LangChain",
+  "colors": {
+    "primary": "#060814",
+    "light": "#7ccafa",
+    "dark": "#3c5c7c"
+  },
+  "logo": {
+    "light": "https://media.brand.dev/eb16b6af-4b63-43a4-8225-085b6f4195a8.png",
+    "dark": "https://media.brand.dev/eb16b6af-4b63-43a4-8225-085b6f4195a8.png"
+  },
+  "favicon": "https://media.brand.dev/f3f67d40-dd7e-420e-9f74-b33648ab58bc.png",
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/langchain-ai"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Try LangSmith",
+      "href": "https://smith.langchain.com/"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "LangSmith",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "langsmith/overview",
+              "langsmith/quickstart",
+              "langsmith/concepts"
+            ]
+          },
+          {
+            "group": "Observability",
+            "pages": [
+              "langsmith/tracing",
+              "langsmith/integrations",
+              "langsmith/dashboards"
+            ]
+          },
+          {
+            "group": "Evaluation",
+            "pages": [
+              "langsmith/evaluation",
+              "langsmith/datasets",
+              "langsmith/annotation"
+            ]
+          },
+          {
+            "group": "Prompt Engineering",
+            "pages": [
+              "langsmith/prompts",
+              "langsmith/playground"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "langsmith/deployment",
+              "langsmith/agent-server",
+              "langsmith/studio"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Open Source",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "oss/overview",
+              "oss/langchain-quickstart",
+              "oss/langgraph-quickstart"
+            ]
+          },
+          {
+            "group": "LangChain",
+            "pages": [
+              "oss/langchain/overview",
+              "oss/langchain/agents",
+              "oss/langchain/models",
+              "oss/langchain/tools"
+            ]
+          },
+          {
+            "group": "LangGraph",
+            "pages": [
+              "oss/langgraph/overview",
+              "oss/langgraph/persistence",
+              "oss/langgraph/streaming"
+            ]
+          },
+          {
+            "group": "Deep Agents",
+            "pages": [
+              "oss/deepagents/overview",
+              "oss/deepagents/quickstart",
+              "oss/deepagents/capabilities"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "oss/integrations/overview",
+              "oss/integrations/providers"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Fleet",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "fleet/overview",
+              "fleet/quickstart"
+            ]
+          },
+          {
+            "group": "Build Agents",
+            "pages": [
+              "fleet/tools",
+              "fleet/channels",
+              "fleet/templates"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "fleet/code",
+              "fleet/webhooks",
+              "fleet/mcp-servers"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "footer": {
+    "links": [
+      {
+        "header": "Resources",
+        "items": [
+          { "label": "Forum", "href": "https://forum.langchain.com/" },
+          { "label": "Changelog", "href": "https://changelog.langchain.com/" },
+          { "label": "LangChain Academy", "href": "https://academy.langchain.com/" },
+          { "label": "Contact Sales", "href": "https://www.langchain.com/contact-sales" }
+        ]
+      },
+      {
+        "header": "Company",
+        "items": [
+          { "label": "Home", "href": "https://langchain.com/" },
+          { "label": "Trust Center", "href": "https://trust.langchain.com/" },
+          { "label": "Blog", "href": "https://blog.langchain.com/" }
+        ]
+      }
+    ],
+    "socials": {
+      "github": "https://github.com/langchain-ai",
+      "x": "https://x.com/LangChain"
+    }
+  }
+}

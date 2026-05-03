@@ -1,0 +1,199 @@
+---
+title: "Collect human feedback with annotation queues"
+sidebarTitle: "Annotation"
+description: "Route traces to reviewers, collect structured feedback with custom rubrics, and build evaluation datasets from human-reviewed runs in LangSmith."
+---
+
+Annotation queues give your team a structured workflow for reviewing AI application outputs and attaching feedback to specific runs. Instead of reviewing traces ad hoc, you route runs to a queue, configure rubrics that tell reviewers what to evaluate, and track progress across your team.
+
+LangSmith supports two queue types:
+
+- **Single-run queues**: Reviewers see one run at a time and submit scores for each rubric item you define. Best for triage, issue investigation, and building datasets.
+- **Pairwise queues**: Reviewers see two runs side by side and choose which output is better (or equivalent). Best for A/B comparisons between two model or prompt versions.
+
+## Create a single-run annotation queue
+
+<Steps>
+  <Step title="Open Annotation Queues">
+    Navigate to **Annotation Queues** in the left sidebar and click **+ Annotation Queue**.
+  </Step>
+
+  <Step title="Add basic details">
+    Enter a **Name** and **Description** for the queue. Optionally set a **default dataset** so reviewers can export annotated runs directly to a dataset without having to switch datasets manually.
+  </Step>
+
+  <Step title="Configure the annotation rubric">
+    Draft **Instructions** that will appear in the sidebar for every run. Then click **+ Add a feedback rubric** to define the feedback keys reviewers must fill out.
+
+    For each rubric item, provide:
+    - A **feedback key** (the metric name stored in LangSmith)
+    - A **description** of what reviewers should evaluate
+    - For categorical feedback: short descriptions for each score category
+
+    For example, a correctness rubric might have two categories—`Pass` (score 1) and `Fail` (score 0)—with a description explaining what each means.
+  </Step>
+
+  <Step title="Set collaborator settings">
+    Configure how many reviewers must mark a run as done before it leaves the queue. You can also:
+
+    - **Enable reservations**: Lock a run for one reviewer at a time for a configurable duration, preventing two people from reviewing the same run simultaneously.
+    - **Use assigned reviewers**: Specify exactly which workspace members must review each run instead of using a count-based threshold.
+  </Step>
+</Steps>
+
+## Add runs to a queue
+
+You can populate a queue through several routes:
+
+<AccordionGroup>
+  <Accordion title="From a trace view">
+    Open any trace in **Tracing Projects** and click **Add to Annotation Queue** in the top-right corner. You can add any intermediate run, but not the root span.
+  </Accordion>
+
+  <Accordion title="From the runs table">
+    Select multiple runs in the runs table and click **Add to Annotation Queue** at the bottom of the page.
+  </Accordion>
+
+  <Accordion title="Programmatically with the SDK">
+    Use the Python or TypeScript SDK to add runs to a queue by ID:
+
+    <CodeGroup>
+    ```python Python
+    from langsmith import Client
+
+    client = Client()
+
+    # Add runs to a named annotation queue
+    client.add_runs_to_annotation_queue(
+        queue_name="my-review-queue",
+        run_ids=["run-id-1", "run-id-2"],
+    )
+    ```
+
+    ```typescript TypeScript
+    import { Client } from "langsmith";
+
+    const client = new Client();
+
+    await client.addRunsToAnnotationQueue(
+      "queue-id",
+      ["run-id-1", "run-id-2"],
+    );
+    ```
+    </CodeGroup>
+  </Accordion>
+
+  <Accordion title="With automation rules">
+    Configure a [automation rule](/langsmith/tracing) to automatically route runs that match a filter—such as runs with low user scores or runs that produced errors—into a queue without any manual steps.
+  </Accordion>
+</AccordionGroup>
+
+## Review a queue
+
+1. Navigate to **Annotation Queues** and click the queue you want to review.
+2. Each run appears one at a time with the rubric in the right-hand panel.
+3. Score each feedback key, add reviewer notes, and click **Done** to advance to the next run.
+4. To build a dataset entry, edit the run's inputs and outputs in the review pane and click **Add to Dataset**.
+
+<Tip>
+  Use keyboard shortcuts next to each feedback option to speed up the review process. Press `D` to add the current run to the default dataset.
+</Tip>
+
+## Create a pairwise annotation queue
+
+Pairwise queues are created from the **Datasets & Experiments** page, not the **Annotation Queues** page, because they require two experiment sessions to compare.
+
+<Steps>
+  <Step title="Select two experiments">
+    Navigate to **Datasets & Experiments**, open a dataset, and select **exactly two experiments** you want to compare.
+  </Step>
+  <Step title="Create the queue">
+    Click **Annotate** and choose **Add to Pairwise Annotation Queue**. Enter the queue name, description, rubric instructions, and collaborator settings.
+  </Step>
+  <Step title="Review comparisons">
+    In the queue review view, Run A appears on the left and Run B on the right. For each rubric item, choose **A is better**, **B is better**, or **Equal** using the UI buttons or the `A`, `B`, `E` keyboard shortcuts. Press **Done** (or `Enter`) to advance.
+  </Step>
+</Steps>
+
+## Feedback criteria and scoring
+
+LangSmith stores feedback from annotation queues as structured feedback objects on runs. Each feedback object has:
+
+- **key**: The metric name (matching your rubric key)
+- **score** or **value**: The numeric or categorical score
+- **comment** (optional): Free-text reviewer notes
+
+You can define feedback schemas at the organization level with the SDK to enforce consistent scoring definitions across all queues:
+
+<CodeGroup>
+```python Python
+from langsmith import Client
+
+client = Client()
+
+# Continuous 0–1 score
+client.create_feedback_config(
+    "accuracy",
+    feedback_config={"type": "continuous", "min": 0, "max": 1},
+    is_lower_score_better=False,
+)
+
+# Pass / Fail categorical
+client.create_feedback_config(
+    "correctness",
+    feedback_config={
+        "type": "categorical",
+        "categories": [
+            {"value": 1, "label": "Pass"},
+            {"value": 0, "label": "Fail"},
+        ],
+    },
+)
+
+# Free-text notes
+client.create_feedback_config(
+    "notes",
+    feedback_config={"type": "freeform"},
+)
+```
+
+```typescript TypeScript
+import { Client } from "langsmith";
+
+const client = new Client();
+
+// Continuous 0–1 score
+await client.createFeedbackConfig({
+  feedbackKey: "accuracy",
+  feedbackConfig: { type: "continuous", min: 0, max: 1 },
+  isLowerScoreBetter: false,
+});
+
+// Pass / Fail categorical
+await client.createFeedbackConfig({
+  feedbackKey: "correctness",
+  feedbackConfig: {
+    type: "categorical",
+    categories: [
+      { value: 1, label: "Pass" },
+      { value: 0, label: "Fail" },
+    ],
+  },
+});
+```
+</CodeGroup>
+
+<Note>
+  Feedback configs are scoped to your organization. Calling `create_feedback_config` with an identical config that already exists returns the existing config. Calling it with a different config for the same key raises a 400 error.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Evaluation datasets" icon="database" href="/langsmith/datasets">
+    Add reviewed runs to datasets to use them in offline evaluations.
+  </Card>
+  <Card title="Evaluation overview" icon="flask" href="/langsmith/evaluation">
+    Run automated evaluations with LLM-as-judge or code evaluators alongside human feedback.
+  </Card>
+</CardGroup>

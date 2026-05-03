@@ -1,0 +1,164 @@
+---
+title: "Deep Agents core capabilities"
+sidebarTitle: "Capabilities"
+description: "Deep Agents comes with context compression, virtual filesystem, subagent spawning, human-in-the-loop, sandbox execution, and long-term memory built in."
+---
+
+Deep Agents provides a set of built-in capabilities that make building long-running, complex agents easier. These capabilities are included in the agent harness—the combination of tools, middleware, and runtime configuration that powers every deep agent.
+
+## Context engineering
+
+Context management is one of the most important challenges in long-running agents. Deep Agents addresses this at multiple layers so your agent can complete tasks that exceed a single context window.
+
+<Accordion title="How context management works">
+- **Input context**: System prompt, memory, skills, and tool prompts shape what the agent knows at startup.
+- **Compression**: Built-in offloading and summarization keep context within window limits as tasks progress. File system tools (`write_file`, `read_file`) let the agent store large results to disk rather than holding them in its context. Auto-summarization compacts older conversation messages when the context window grows long.
+- **Isolation**: Subagents quarantine heavy work and return only a final summary to the main agent.
+- **Long-term memory**: Persistent storage across threads via the virtual filesystem.
+
+This approach enables multi-step tasks that exceed a single context window without manual trimming, while reducing token usage through automatic summarization and offloading.
+</Accordion>
+
+## Virtual filesystem
+
+The harness provides a configurable virtual filesystem that can be backed by different pluggable backends. File operations are exposed directly to the agent as tools.
+
+| Tool | Description |
+|---|---|
+| `ls` | List files in a directory with metadata (size, modified time) |
+| `read_file` | Read file contents with line numbers; supports offset and limit for large files |
+| `write_file` | Create new files |
+| `edit_file` | Perform exact string replacements in files |
+| `glob` | Find files matching patterns (for example, `**/*.py`) |
+| `grep` | Search file contents with multiple output modes |
+| `execute` | Run shell commands (available with sandbox backends only) |
+
+You can swap the underlying backend without changing your agent code. Available backends include `StateBackend` (in-memory), `FilesystemBackend` (local disk), `StoreBackend` (LangGraph store for cross-thread persistence), and sandbox backends for isolated execution.
+
+## Memory
+
+Deep Agents treats memory as a first-class concern and distinguishes between short-term and long-term memory.
+
+<Accordion title="Short-term memory">
+Short-term memory is the conversation history and scratch files within a single session. It is managed automatically via LangGraph checkpoints—every conversation is persisted as a checkpointed thread. You do not need to configure this separately.
+</Accordion>
+
+<Accordion title="Long-term memory">
+Long-term memory persists across conversations. The agent reads and writes memory as files; you control where those files are stored using backends.
+
+**Agent-scoped memory** shares a memory file across all users of the agent. It is useful for building an agent that accumulates knowledge and refines its approach over time.
+
+**User-scoped memory** gives each user their own memory file, isolating preferences and context per user.
+
+```python
+from deepagents import create_deep_agent
+from deepagents.backends import CompositeBackend, StateBackend, StoreBackend
+
+# User-scoped memory: each user gets their own preferences file
+agent = create_deep_agent(
+    model="anthropic:claude-sonnet-4-6",
+    memory=["/memories/preferences.md"],
+    backend=CompositeBackend(
+        default=StateBackend(),
+        routes={
+            "/memories/": StoreBackend(
+                namespace=lambda rt: (rt.server_info.user.identity,),
+            ),
+        },
+    ),
+)
+```
+</Accordion>
+
+## Subagents
+
+A built-in `task` tool enables the main agent to spawn ephemeral subagents for isolated multi-step tasks.
+
+<Accordion title="How subagents work">
+When the main agent invokes the `task` tool, it creates a fresh agent instance with its own context. The subagent executes autonomously until completion and returns a single final report. The subagent's work does not appear in the main agent's context—only the result does.
+
+**Benefits:**
+- Context isolation keeps the main agent's window clean.
+- Multiple subagents can run concurrently for parallel work.
+- Subagents can be specialized with different tools and configurations.
+- Large subtask context is compressed into a single result, reducing token usage.
+
+A "general-purpose" subagent is automatically available with filesystem tools by default. You can define custom subagents via the `subagents` parameter on `create_deep_agent`.
+</Accordion>
+
+## Human-in-the-loop
+
+Configure the agent to pause execution and require human approval before specific tool calls.
+
+<Accordion title="Configure human-in-the-loop">
+Pass `interrupt_on` to `create_deep_agent` with a mapping of tool names to interrupt configurations. When the agent attempts to call a listed tool, execution pauses until a human approves or modifies the input.
+
+```python
+agent = create_deep_agent(
+    model="anthropic:claude-sonnet-4-6",
+    tools=[...],
+    interrupt_on={"edit_file": True},  # pause before every file edit
+)
+```
+
+This is useful for:
+- Safety gates before destructive operations (file edits, deletions)
+- Verification before expensive API calls
+- Interactive guidance and debugging
+</Accordion>
+
+## Sandboxes
+
+When you attach a sandbox backend, the agent gains an `execute` tool for running shell commands in an isolated environment.
+
+<Accordion title="Sandbox details">
+Sandbox backends implement the `SandboxBackendProtocolV2`. When the harness detects a sandbox backend, it automatically adds the `execute` tool. Without a sandbox, the agent only has filesystem tools and cannot run commands.
+
+The `execute` tool returns combined stdout and stderr, the exit code, and truncates large outputs to a file for incremental reading.
+
+**Supported sandbox providers:** Modal, Daytona, Deno.
+
+**Benefits:**
+- Code runs in isolation, protecting your host system.
+- Use specific dependencies or OS configurations without local setup.
+- Consistent execution environments across teams.
+
+See [Deep Agents](/oss/deepagents/overview) for setup and provider details.
+</Accordion>
+
+## Streaming
+
+Deep Agents has built-in streaming for real-time updates from agent execution using LangGraph. You can observe output progressively and review agent and subagent work including tool calls, tool results, and LLM responses.
+
+<Accordion title="Stream agent output">
+```python
+for chunk in agent.stream(
+    {"messages": [{"role": "user", "content": "Research LangGraph"}]},
+    stream_mode="updates",
+):
+    print(chunk)
+```
+
+Streaming uses the same LangGraph streaming API described in the [LangGraph streaming guide](/oss/langgraph/streaming). All stream modes (`values`, `updates`, `messages`, `custom`, `debug`) are available.
+</Accordion>
+
+## Skills
+
+Skills provide reusable workflows, domain knowledge, and custom instructions to your agent. They follow the [Agent Skills standard](https://agentskills.io/) and use progressive disclosure—only loaded when the agent determines they are relevant to the current task.
+
+<Accordion title="How skills work">
+- Each skill is a directory containing a `SKILL.md` file with instructions and metadata.
+- The agent reads skill descriptions at startup, then reads the full skill file only when it matches a task.
+- Skills reduce token usage by only loading relevant capabilities when needed.
+- Bundles capabilities together with additional context.
+
+```python
+agent = create_deep_agent(
+    model="anthropic:claude-sonnet-4-6",
+    skills=["/skills/"],
+    backend=...,
+)
+```
+
+See [Deep Agents](/oss/deepagents/overview) for configuration details and the skills format.
+</Accordion>

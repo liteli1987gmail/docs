@@ -1,0 +1,150 @@
+---
+title: "Connect LangSmith to your AI framework"
+sidebarTitle: "Integrations"
+description: "Auto-trace LangChain, LangGraph, OpenAI, Anthropic, and other popular LLM providers and agent frameworks with minimal configuration."
+---
+
+LangSmith integrates with a wide range of LLM providers and agent frameworks. When you use a supported integration, traces are captured automatically—no manual instrumentation required. For frameworks not listed here, use the [`@traceable` decorator or `traceable` wrapper](/langsmith/tracing) to instrument your code directly.
+
+## LangChain and LangGraph
+
+LangChain and LangGraph auto-trace every chain, agent, and tool call when `LANGSMITH_TRACING=true` is set. No code changes are needed.
+
+<Note>
+  Set `LANGSMITH_TRACING=true` and `LANGSMITH_API_KEY` in your environment, then run your LangChain or LangGraph application. All runs are automatically sent to your LangSmith project.
+</Note>
+
+<Tabs>
+  <Tab title="Python">
+    ```bash
+    export LANGSMITH_TRACING=true
+    export LANGSMITH_API_KEY="<your-api-key>"
+    ```
+
+    That's all. Any `chain.invoke(...)`, `agent.run(...)`, or `graph.invoke(...)` call will appear as a trace in LangSmith.
+  </Tab>
+  <Tab title="TypeScript">
+    ```bash
+    export LANGSMITH_TRACING=true
+    export LANGSMITH_API_KEY="<your-api-key>"
+    ```
+
+    Any LangChain.js or LangGraph.js invocation will be traced automatically once these variables are set.
+  </Tab>
+</Tabs>
+
+For detailed setup guides, see [LangChain tracing](/langsmith/tracing) and [LangGraph tracing](/langsmith/tracing).
+
+## OpenAI
+
+Wrap the OpenAI client with `wrap_openai` / `wrapOpenAI` to trace every chat completion and embedding call automatically.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    from openai import OpenAI
+    from langsmith.wrappers import wrap_openai
+    from langsmith import traceable
+
+    client = wrap_openai(OpenAI())
+
+    @traceable
+    def assistant(question: str) -> str:
+        response = client.chat.completions.create(
+            model="gpt-5.4-mini",
+            messages=[{"role": "user", "content": question}],
+        )
+        return response.choices[0].message.content
+
+    assistant("What is the capital of France?")
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import OpenAI from "openai";
+    import { wrapOpenAI } from "langsmith/wrappers";
+    import { traceable } from "langsmith/traceable";
+
+    const client = wrapOpenAI(new OpenAI());
+
+    const assistant = traceable(async (question: string) => {
+        const response = await client.chat.completions.create({
+            model: "gpt-5.4-mini",
+            messages: [{ role: "user", content: question }],
+        });
+        return response.choices[0]?.message?.content ?? null;
+    });
+
+    await assistant("What is the capital of France?");
+    ```
+  </Tab>
+</Tabs>
+
+For the full OpenAI integration guide, see [tracing](/langsmith/tracing).
+
+## Anthropic
+
+LangSmith provides a wrapper for the Anthropic client. Import `wrap_anthropic` from `langsmith.wrappers` and wrap your client the same way as OpenAI.
+
+<Tabs>
+  <Tab title="Python">
+    ```python
+    import anthropic
+    from langsmith.wrappers import wrap_anthropic
+    from langsmith import traceable
+
+    client = wrap_anthropic(anthropic.Anthropic())
+
+    @traceable
+    def assistant(question: str) -> str:
+        message = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": question}],
+        )
+        return message.content[0].text
+
+    assistant("What is the capital of France?")
+    ```
+  </Tab>
+  <Tab title="TypeScript">
+    ```typescript
+    import Anthropic from "@anthropic-ai/sdk";
+    import { wrapAnthropic } from "langsmith/wrappers/anthropic";
+    import { traceable } from "langsmith/traceable";
+
+    const client = wrapAnthropic(new Anthropic());
+
+    const assistant = traceable(async (question: string) => {
+        const message = await client.messages.create({
+            model: "claude-sonnet-4-6",
+            max_tokens: 1024,
+            messages: [{ role: "user", content: question }],
+        });
+        return (message.content[0] as { text: string }).text;
+    });
+
+    await assistant("What is the capital of France?");
+    ```
+  </Tab>
+</Tabs>
+
+For the full Anthropic integration guide, see [tracing](/langsmith/tracing).
+
+## All available integrations
+
+LangSmith supports the following LLM providers and agent frameworks:
+
+**LLM providers**: Amazon Bedrock, Anthropic, DeepSeek, Google Gemini, LiteLLM, Mistral, OpenAI
+
+**Agent frameworks**: AutoGen, Claude Agent SDK, CrewAI, Deep Agents, Google ADK, LangChain, LangGraph, Mastra, Microsoft Agent Framework, OpenAI Agents, OpenTelemetry, PydanticAI, Semantic Kernel, Strands Agents, Vercel AI SDK
+
+**Voice AI**: LiveKit, Pipecat
+
+**Developer tools**: Claude Code, Instructor, n8n, Temporal
+
+Browse the full list and setup guides at [Integrations](/langsmith/integrations).
+
+## Manual instrumentation
+
+For any framework not listed above, use `@traceable` (Python) or `traceable` (TypeScript) to instrument your code directly. See [Trace your AI agent with LangSmith](/langsmith/tracing) for a complete guide.

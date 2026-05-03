@@ -1,0 +1,115 @@
+---
+title: "Export Fleet agents with webhooks"
+sidebarTitle: "Webhooks"
+description: "Use Fleet webhooks to send your agent's full configuration to external systems, CI/CD pipelines, or custom deployment workflows via HTTPS."
+---
+
+Fleet webhooks let you push your agent's complete configuration — instructions, tools, and files — to an external HTTPS endpoint when you're ready to deploy or export. This is useful for integrating agent publishing into a CI/CD pipeline or a custom deployment system.
+
+<Note>
+Webhook URLs must use HTTPS. Custom headers (such as API keys) are stored encrypted. Webhook access is limited to the agent owner.
+</Note>
+
+## Add a webhook
+
+1. Navigate to [Settings > Fleet webhooks](https://smith.langchain.com/settings/workspaces/agent-builder-webhooks).
+2. Click **Add webhook** and configure:
+
+| Field | Description |
+|---|---|
+| **Name** | A descriptive label, e.g., "Deploy to Production" |
+| **URL** | Your HTTPS endpoint that will receive the payload |
+| **Headers** (optional) | Custom headers for authentication, stored encrypted |
+| **Form Schema** (optional) | Custom input fields users fill when triggering |
+
+3. Click **Save**.
+
+## Trigger a webhook
+
+1. Open your agent in the Fleet editor.
+2. Click the **Settings** menu (gear icon).
+3. Under **Webhooks**, click the webhook name.
+4. Fill in any custom form fields.
+5. Click **Run Webhook**.
+
+## Webhook payload
+
+Your endpoint receives a JSON payload with the following structure:
+
+```json
+{
+  "action": "Webhook Name",
+  "input": { "environment": "prod", "dry_run": true },
+  "publisher": { "user_id": "uuid", "email": "user@example.com" },
+  "agent": { "name": "My Agent", "description": "Agent description" },
+  "tool_auth_requirements": [
+    {
+      "tool_name": "tavily_web_search",
+      "auth_type": "api_key",
+      "required_env_vars": ["TAVILY_API_KEY"]
+    },
+    {
+      "tool_name": "google_calendar",
+      "auth_type": "oauth",
+      "auth_provider": "google",
+      "scopes": ["calendar.readonly"]
+    }
+  ],
+  "files": {
+    "type": "zip",
+    "filename": "My_Agent.zip",
+    "content_base64": "<base64-encoded-zip>"
+  }
+}
+```
+
+The `files.content_base64` field is a base64-encoded ZIP archive containing:
+
+```
+AGENTS.md         # Agent system prompt and instructions
+config.json       # Agent metadata (name, description, visibility)
+tools.json        # Tool configurations
+skills/           # Optional skill definitions
+subagents/        # Optional subagent configurations
+```
+
+## Custom input fields
+
+Define form fields to collect information when the webhook is triggered:
+
+| Type | Description |
+|---|---|
+| `string` | Single-line text |
+| `number` | Numeric input |
+| `boolean` | Checkbox |
+| `textarea` | Multi-line text |
+| `json` | JSON editor |
+| `select` | Dropdown with predefined options |
+
+## Example: webhook receiver
+
+```python
+from http.server import HTTPServer, BaseHTTPRequestHandler
+import json, base64, zipfile, io
+
+class WebhookHandler(BaseHTTPRequestHandler):
+    def do_POST(self):
+        body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+        print(f"Webhook: {body['action']} from {body['publisher']['email']}")
+
+        # Extract ZIP contents
+        if body.get("files", {}).get("content_base64"):
+            zip_bytes = base64.b64decode(body["files"]["content_base64"])
+            with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+                print("Files:", zf.namelist())
+
+        self.send_response(200)
+        self.end_headers()
+        self.wfile.write(b'{"status":"ok"}')
+
+HTTPServer(("", 8000), WebhookHandler).serve_forever()
+```
+
+## Manage webhooks
+
+To edit a webhook, navigate to [Settings > Fleet webhooks](https://smith.langchain.com/settings/workspaces/agent-builder-webhooks) and click **Edit** next to the webhook. To delete, click **Delete** and confirm.

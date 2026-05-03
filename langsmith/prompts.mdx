@@ -1,0 +1,207 @@
+---
+title: "Manage and version prompts in LangSmith"
+sidebarTitle: "Prompts"
+description: "Store, version, and collaborate on prompt templates in the Prompt Hub. Pull any committed version into your application code and iterate with your team."
+---
+
+The LangSmith Prompt Hub is a central store for prompt templates. You can create prompts in the Playground UI or push them with the SDK, commit changes as you iterate, tag important versions, and pull any committed version directly into your application code. This gives your team a single source of truth for prompts and a full history of every change.
+
+## Create a prompt in the UI
+
+<Steps>
+  <Step title="Open the Playground">
+    In the [LangSmith UI](https://smith.langchain.com), click **Playground** in the left sidebar.
+  </Step>
+
+  <Step title="Compose your messages">
+    The left panel of the Playground is your prompt editor. Add messages with the appropriate roles:
+
+    - **System**: Instructions, persona, and rules for the model.
+    - **Human**: The user's message. Use this with template variables to make the prompt reusable.
+    - **AI**: Example assistant responses for few-shot prompting.
+    - **Tool / Function**: Tool output examples for testing tool-augmented flows.
+    - **Messages List**: A dynamic placeholder for injecting full conversation histories.
+  </Step>
+
+  <Step title="Add template variables">
+    Insert `{variable_name}` (f-string format) or `{{variable_name}}` (mustache format) in any message to create an input variable. LangSmith adds an **Inputs** box in the right panel where you can fill in test values.
+
+    You can also highlight text and click **Convert to variable** to templatize it directly.
+  </Step>
+
+  <Step title="Test and save">
+    Fill in test inputs, click **Start** to run the prompt, and review the output. When you're happy with the result, click **Save** and give the prompt a name.
+  </Step>
+</Steps>
+
+## Create a prompt with the SDK
+
+Use `push_prompt` / `pushPrompt` to create or update a prompt programmatically. Each push records a new commit.
+
+<CodeGroup>
+```python Python
+from langsmith import Client
+from langchain_core.prompts import ChatPromptTemplate
+
+client = Client()
+
+prompt = ChatPromptTemplate([
+    ("system", "You are a helpful chatbot."),
+    ("user", "{question}"),
+])
+
+client.push_prompt("prompt-quickstart", object=prompt)
+```
+
+```typescript TypeScript
+import { Client } from "langsmith";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+
+const client = new Client();
+
+const prompt = ChatPromptTemplate.fromMessages([
+  ["system", "You are a helpful chatbot."],
+  ["user", "{question}"],
+]);
+
+await client.pushPrompt("prompt-quickstart", { object: prompt });
+```
+</CodeGroup>
+
+The resulting link takes you to the newly created prompt in the Prompt Hub.
+
+## Pull a prompt in your application
+
+Use `pull_prompt` / `pull` to load the latest committed version of a prompt by name, then format it with your inputs:
+
+<CodeGroup>
+```python Python
+from langsmith import Client
+from openai import OpenAI
+from langchain_core.messages import convert_to_openai_messages
+
+client = Client()
+oai_client = OpenAI()
+
+prompt = client.pull_prompt("prompt-quickstart")
+
+formatted_prompt = prompt.invoke({"question": "What is the color of the sky?"})
+
+response = oai_client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=convert_to_openai_messages(formatted_prompt.messages),
+)
+```
+
+```typescript TypeScript
+import { OpenAI } from "openai";
+import { pull } from "langchain/hub";
+import { convertPromptToOpenAI } from "@langchain/openai";
+
+const oaiClient = new OpenAI();
+
+const prompt = await pull("prompt-quickstart");
+
+const formattedPrompt = await prompt.invoke({
+  question: "What is the color of the sky?",
+});
+
+const response = await oaiClient.chat.completions.create({
+  model: "gpt-4o-mini",
+  messages: convertPromptToOpenAI(formattedPrompt).messages,
+});
+```
+</CodeGroup>
+
+To pin your application to a specific version, pass the commit hash:
+
+```python
+# Python: pull a specific commit
+prompt = client.pull_prompt("prompt-quickstart:abc123ef")
+```
+
+```typescript
+// TypeScript: pull a specific commit
+const prompt = await pull("prompt-quickstart:abc123ef");
+```
+
+## Prompt template formats
+
+LangSmith supports two template formats. The default is **f-string**; you can switch to **mustache** using the dropdown below the prompt editor in the Playground.
+
+<Tabs>
+  <Tab title="F-string">
+    Use single curly braces. This is the default format and works with Python's `str.format()` syntax.
+
+    ```
+    Answer the following question: {question}
+    ```
+  </Tab>
+  <Tab title="Mustache">
+    Use double curly braces. Mustache supports nested objects and conditional blocks.
+
+    ```
+    Answer the following question: {{question}}
+    ```
+  </Tab>
+</Tabs>
+
+## Versioning and commits
+
+Every time you save a prompt in the UI or push one with the SDK, LangSmith records a **commit**. Commits preserve the full history of your prompt, including the messages, model configuration, and template format.
+
+**Tag a commit** to mark important milestones—for example, `v1.0` or `production`. Tags make it easy to pull a specific stable version in your CI/CD pipeline.
+
+To tag a commit in the UI:
+
+1. Navigate to **Prompts** in the left sidebar and select your prompt.
+2. Click **Tag** in the top-right corner of the prompt detail page.
+3. Enter a tag name and select the commit to tag.
+
+To iterate on a prompt and create a new commit with the SDK:
+
+<CodeGroup>
+```python Python
+from langsmith import Client
+from langchain_core.prompts import ChatPromptTemplate
+
+client = Client()
+
+new_prompt = ChatPromptTemplate([
+    ("system", "You are a helpful chatbot. Respond in Spanish."),
+    ("user", "{question}"),
+])
+
+# Pushing to the same name creates a new commit
+client.push_prompt("prompt-quickstart", object=new_prompt)
+```
+
+```typescript TypeScript
+import { Client } from "langsmith";
+import { ChatPromptTemplate } from "@langchain/core/prompts";
+
+const client = new Client();
+
+const newPrompt = ChatPromptTemplate.fromMessages([
+  ["system", "You are a helpful chatbot. Speak in Spanish."],
+  ["user", "{question}"],
+]);
+
+await client.pushPrompt("prompt-quickstart", { object: newPrompt });
+```
+</CodeGroup>
+
+<Note>
+  Workspace members can open any prompt in the Playground, experiment with changes, and save them as a new commit on the same prompt. This preserves the full team history without overwriting anyone's work.
+</Note>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Playground" icon="test-pipe" href="/langsmith/playground">
+    Test prompts against models, compare outputs, and run evaluations from the Playground.
+  </Card>
+  <Card title="Evaluation" icon="flask" href="/langsmith/evaluation">
+    Run your prompts against a dataset to measure quality and catch regressions.
+  </Card>
+</CardGroup>
